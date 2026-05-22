@@ -3,6 +3,9 @@
     "name": "CoreShift",
     "slug": "coreshift",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "coreshift",
@@ -15,21 +18,42 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.coreshift.app"
+      "bundleIdentifier": "com.coreshift.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "CoreShift may use the camera for profile photos.",
+        "NSPhotoLibraryUsageDescription": "CoreShift may access your photo library for profile photos."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F7F7FA"
       },
-      "package": "com.coreshift.app"
+      "package": "com.coreshift.app",
+      "permissions": []
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F7F7FA",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "updates": {
+      "url": "https://u.expo.dev/coreshift"
+    },
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
     }
   }
 }

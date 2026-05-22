@@ -2,9 +2,19 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as SplashScreen from 'expo-splash-screen';
 import { Colors } from '@/constants/theme';
 
+// Keep the native splash visible until we're ready
+SplashScreen.preventAutoHideAsync();
+
 export default function RootLayout() {
+  useEffect(() => {
+    // Hide native splash as soon as layout mounts — the custom splash
+    // screen (app/index.tsx) takes over from here.
+    SplashScreen.hideAsync();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
