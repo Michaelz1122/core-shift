@@ -46,14 +46,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "updates": {
-      "url": "https://u.expo.dev/coreshift"
-    },
-    "extra": {
-      "eas": {
-        "projectId": ""
-      }
     }
   }
 }
