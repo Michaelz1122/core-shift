@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,22 +6,25 @@ import Screen from '@/components/ui/Screen';
 import AppText from '@/components/ui/AppText';
 import PrimaryButton from '@/components/ui/PrimaryButton';
 import Card from '@/components/ui/Card';
-import { SUGGESTED_HABITS } from '@/data/mockHabits';
-import { ALL_GOALS } from '@/data/mockGoals';
 import { useAppStore } from '@/store/useAppStore';
-import { Habit } from '@/types';
+import { getSuggestionSections } from '@/utils/habitSuggestions';
 import { Colors, Spacing } from '@/constants/theme';
 
 export default function HabitSuggestions() {
-  const { selectedGoalIds, selectedHabitIds, toggleHabit } = useAppStore();
+  const {
+    selectedGoalIds,
+    selectedStruggleIds,
+    selectedHabitIds,
+    buildAvailableHabits,
+    toggleHabit,
+  } = useAppStore();
 
-  const suggestedHabits: Habit[] = selectedGoalIds.flatMap(
-    (goalId) => SUGGESTED_HABITS[goalId] ?? []
-  );
+  // Build personalised habit list from goals + struggles on mount
+  useEffect(() => {
+    buildAvailableHabits();
+  }, []);
 
-  const goalLabel = (goalId: string) =>
-    ALL_GOALS.find((g) => g.id === goalId)?.label ?? goalId;
-
+  const sections = getSuggestionSections(selectedGoalIds, selectedStruggleIds);
   const canContinue = selectedHabitIds.length > 0;
 
   return (
@@ -30,46 +33,52 @@ export default function HabitSuggestions() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={Colors.charcoal} />
         </TouchableOpacity>
-        <AppText variant="h1" style={styles.title}>
-          Build your first habits.
-        </AppText>
+        <View style={styles.stepRow}>
+          <AppText variant="caption" color="primaryBlue">Step 3 of 3</AppText>
+        </View>
+        <AppText variant="h1" style={styles.title}>Build your first habits.</AppText>
         <AppText variant="body">
-          Select the habits you want to track. You can change these anytime.
+          Based on your goals and struggles, here's what CoreShift suggests. You can change these anytime.
         </AppText>
+        <View style={styles.pills}>
+          {[1, 2, 3].map((n) => (
+            <View key={n} style={[styles.pill, styles.pillActive]} />
+          ))}
+        </View>
       </View>
 
-      {selectedGoalIds.map((goalId) => {
-        const habits = SUGGESTED_HABITS[goalId] ?? [];
-        if (!habits.length) return null;
-        return (
-          <View key={goalId} style={styles.section}>
-            <AppText variant="label" style={styles.sectionLabel}>
-              {goalLabel(goalId)}
-            </AppText>
-            <Card>
-              {habits.map((habit, idx) => {
-                const selected = selectedHabitIds.includes(habit.id);
-                const isLast = idx === habits.length - 1;
-                return (
-                  <TouchableOpacity
-                    key={habit.id}
-                    style={[styles.habitRow, !isLast && styles.habitBorder]}
-                    onPress={() => toggleHabit(habit.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.check, selected && styles.checkOn]}>
-                      {selected && <Ionicons name="checkmark" size={12} color={Colors.white} />}
-                    </View>
-                    <AppText variant="bodyMedium" style={styles.habitTitle}>
-                      {habit.title}
-                    </AppText>
-                  </TouchableOpacity>
-                );
-              })}
-            </Card>
-          </View>
-        );
-      })}
+      {sections.map((section) => (
+        <View key={section.label} style={styles.section}>
+          <AppText variant="label" style={styles.sectionLabel}>{section.label}</AppText>
+          <Card style={styles.habitCard}>
+            {section.habits.map((habit, idx) => {
+              const selected = selectedHabitIds.includes(habit.id);
+              const isLast = idx === section.habits.length - 1;
+              return (
+                <TouchableOpacity
+                  key={habit.id}
+                  style={[styles.habitRow, !isLast && styles.habitBorder]}
+                  onPress={() => toggleHabit(habit.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.check, selected && styles.checkOn]}>
+                    {selected && <Ionicons name="checkmark" size={12} color={Colors.white} />}
+                  </View>
+                  <AppText variant="bodyMedium" style={styles.habitTitle}>
+                    {habit.title}
+                  </AppText>
+                </TouchableOpacity>
+              );
+            })}
+          </Card>
+        </View>
+      ))}
+
+      {sections.length === 0 && (
+        <AppText variant="body" color="muted" align="center" style={styles.noSuggestions}>
+          No suggestions yet — go back and select your goals.
+        </AppText>
+      )}
 
       <View style={styles.footer}>
         <AppText variant="small" align="center" color="muted">
@@ -86,26 +95,17 @@ export default function HabitSuggestions() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingTop: Spacing.lg,
-    marginBottom: Spacing.xl,
-    gap: Spacing.sm,
-  },
-  backBtn: {
-    alignSelf: 'flex-start',
-    padding: Spacing.xs,
-    marginLeft: -Spacing.xs,
-  },
-  title: {
-    marginTop: Spacing.sm,
-  },
-  section: {
-    marginBottom: Spacing.lg,
-  },
-  sectionLabel: {
-    marginBottom: Spacing.sm,
-    color: Colors.muted,
-  },
+  header: { paddingTop: Spacing.xl, marginBottom: Spacing.xl, gap: Spacing.sm },
+  backBtn: { alignSelf: 'flex-start', padding: Spacing.xs, marginLeft: -Spacing.xs },
+  stepRow: { marginBottom: Spacing.xs },
+  title: { marginTop: Spacing.sm },
+  pills: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
+  pill: { width: 24, height: 4, borderRadius: 2, backgroundColor: Colors.border },
+  pillActive: { backgroundColor: Colors.primaryBlue },
+
+  section: { marginBottom: Spacing.lg },
+  sectionLabel: { marginBottom: Spacing.sm, color: Colors.muted },
+  habitCard: { padding: 0, overflow: 'hidden' },
   habitRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -113,10 +113,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.base,
   },
-  habitBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
+  habitBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
   check: {
     width: 22,
     height: 22,
@@ -126,16 +123,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkOn: {
-    backgroundColor: Colors.primaryBlue,
-    borderColor: Colors.primaryBlue,
-  },
-  habitTitle: {
-    flex: 1,
-  },
-  footer: {
-    marginTop: Spacing.xl,
-    paddingBottom: Spacing.xxxl,
-    gap: Spacing.sm,
-  },
+  checkOn: { backgroundColor: Colors.primaryBlue, borderColor: Colors.primaryBlue },
+  habitTitle: { flex: 1 },
+
+  noSuggestions: { marginTop: Spacing.xl },
+  footer: { marginTop: Spacing.xl, paddingBottom: Spacing.xxxl, gap: Spacing.sm },
 });

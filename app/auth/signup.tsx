@@ -6,6 +6,7 @@ import Screen from '@/components/ui/Screen';
 import AppText from '@/components/ui/AppText';
 import PrimaryButton from '@/components/ui/PrimaryButton';
 import TextInputField from '@/components/ui/TextInputField';
+import { useAppStore } from '@/store/useAppStore';
 import { Colors, Spacing } from '@/constants/theme';
 import { Copy } from '@/constants/copy';
 
@@ -13,12 +14,16 @@ export default function SignUpScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const { setUser } = useAppStore();
 
   const handleSignUp = () => {
+    const displayName = name.trim() || 'User';
+    setUser(displayName, email || 'user@example.com', 'email');
     router.replace('/onboarding');
   };
 
   const handleGoogle = () => {
+    setUser('Michael', 'michaelzahy1@gmail.com', 'google');
     router.replace('/onboarding');
   };
 
@@ -29,25 +34,17 @@ export default function SignUpScreen() {
       </TouchableOpacity>
 
       <View style={styles.header}>
-        <AppText variant="hero" style={styles.logo}>
-          CoreShift
-        </AppText>
+        <AppText variant="hero" style={styles.logo}>CoreShift</AppText>
         <View style={styles.logoAccent} />
       </View>
 
-      <AppText variant="h1" style={styles.title}>
-        {Copy.auth.startYourShift}
-      </AppText>
-      <AppText variant="body" style={styles.subtitle}>
-        Build your new life system.
-      </AppText>
+      <AppText variant="h1" style={styles.title}>{Copy.auth.startYourShift}</AppText>
+      <AppText variant="body" style={styles.subtitle}>Build your new life system.</AppText>
 
       <View style={styles.form}>
         <TouchableOpacity style={styles.googleBtn} onPress={handleGoogle} activeOpacity={0.8}>
           <Ionicons name="logo-google" size={20} color={Colors.charcoal} />
-          <AppText variant="bodyMedium" style={styles.googleText}>
-            {Copy.auth.continueWithGoogle}
-          </AppText>
+          <AppText variant="bodyMedium">{Copy.auth.continueWithGoogle}</AppText>
         </TouchableOpacity>
 
         <View style={styles.divider}>
@@ -57,8 +54,8 @@ export default function SignUpScreen() {
         </View>
 
         <TextInputField
-          label="Name"
-          placeholder="Your name"
+          label="Your name"
+          placeholder="How should we call you?"
           value={name}
           onChangeText={setName}
           autoCapitalize="words"
@@ -94,68 +91,22 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  backBtn: {
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.sm,
-    padding: Spacing.xs,
-    alignSelf: 'flex-start',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: Spacing.xxl,
-  },
-  logo: {
-    color: Colors.charcoal,
-    letterSpacing: -0.5,
-  },
-  logoAccent: {
-    width: 28,
-    height: 3,
-    backgroundColor: Colors.primaryBlue,
-    borderRadius: 2,
-    marginTop: Spacing.xs,
-  },
-  title: {
-    marginBottom: Spacing.xs,
-  },
-  subtitle: {
-    marginBottom: Spacing.xl,
-  },
+  backBtn: { marginTop: Spacing.sm, marginBottom: Spacing.sm, padding: Spacing.xs, alignSelf: 'flex-start' },
+  header: { alignItems: 'center', marginBottom: Spacing.xxl },
+  logo: { color: Colors.charcoal, letterSpacing: -0.5 },
+  logoAccent: { width: 28, height: 3, backgroundColor: Colors.primaryBlue, borderRadius: 2, marginTop: Spacing.xs },
+  title: { marginBottom: Spacing.xs },
+  subtitle: { marginBottom: Spacing.xl },
   form: {},
   googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.card,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: 12,
-    paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: Spacing.sm, backgroundColor: Colors.card, borderWidth: 1.5,
+    borderColor: Colors.border, borderRadius: 12, paddingVertical: 14,
     marginBottom: Spacing.base,
   },
-  googleText: {
-    color: Colors.charcoal,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.base,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.border,
-  },
-  dividerText: {
-    color: Colors.muted,
-  },
-  btn: {
-    marginTop: Spacing.sm,
-  },
-  loginLink: {
-    marginTop: Spacing.xl,
-    paddingBottom: Spacing.xl,
-  },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.base },
+  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
+  dividerText: { color: Colors.muted },
+  btn: { marginTop: Spacing.sm },
+  loginLink: { marginTop: Spacing.xl, paddingBottom: Spacing.xl },
 });

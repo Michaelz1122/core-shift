@@ -5,13 +5,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { Colors } from '@/constants/theme';
 
-// Keep the native splash visible until we're ready
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   useEffect(() => {
-    // Hide native splash as soon as layout mounts — the custom splash
-    // screen (app/index.tsx) takes over from here.
     SplashScreen.hideAsync();
   }, []);
 
@@ -30,6 +27,7 @@ export default function RootLayout() {
         <Stack.Screen name="auth/signup" />
         <Stack.Screen name="onboarding/index" />
         <Stack.Screen name="onboarding/goals" />
+        <Stack.Screen name="onboarding/struggles" />
         <Stack.Screen name="onboarding/habits" />
         <Stack.Screen name="onboarding/confirm" />
         <Stack.Screen name="(tabs)" />

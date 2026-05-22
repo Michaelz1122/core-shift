@@ -1,9 +1,10 @@
-import { View, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AppText from '@/components/ui/AppText';
 import Card from '@/components/ui/Card';
+import { useAppStore } from '@/store/useAppStore';
 import { Colors, Spacing, Radii } from '@/constants/theme';
 import { Copy } from '@/constants/copy';
 
@@ -40,6 +41,28 @@ function SettingsRow({ icon, label, onPress, rightContent, danger }: SettingsRow
 }
 
 export default function SettingsScreen() {
+  const { userName, userEmail, resetAll } = useAppStore();
+
+  const avatarLetter = userName ? userName.charAt(0).toUpperCase() : '?';
+
+  const handleReset = () => {
+    Alert.alert(
+      'Reset local data',
+      'This will clear all your habits, progress, notes and onboarding data. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: () => {
+            resetAll();
+            router.replace('/auth/login');
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -50,12 +73,12 @@ export default function SettingsScreen() {
         {/* Profile */}
         <Card style={styles.profileCard}>
           <View style={styles.avatar}>
-            <AppText style={styles.avatarText}>M</AppText>
+            <AppText style={styles.avatarText}>{avatarLetter}</AppText>
           </View>
           <View>
-            <AppText variant="h3">Michael</AppText>
+            <AppText variant="h3">{userName || 'Your name'}</AppText>
             <AppText variant="small" color="muted">
-              michaelzahy1@gmail.com
+              {userEmail || '—'}
             </AppText>
           </View>
         </Card>
@@ -119,6 +142,17 @@ export default function SettingsScreen() {
           />
         </Card>
 
+        {/* Dev / Debug */}
+        <AppText variant="label" style={styles.groupLabel}>Developer</AppText>
+        <Card style={styles.cardGroup}>
+          <SettingsRow
+            icon="trash-outline"
+            label="Reset local data"
+            onPress={handleReset}
+            danger
+          />
+        </Card>
+
         <AppText variant="caption" align="center" color="muted" style={styles.version}>
           CoreShift v1.0.0 · MVP
         </AppText>
@@ -129,14 +163,8 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  content: {
-    paddingHorizontal: Spacing.base,
-    paddingBottom: Spacing.xxxl,
-  },
-  header: {
-    paddingTop: Spacing.xl,
-    marginBottom: Spacing.lg,
-  },
+  content: { paddingHorizontal: Spacing.base, paddingBottom: Spacing.xxxl },
+  header: { paddingTop: Spacing.xl, marginBottom: Spacing.lg },
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -151,21 +179,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.white,
-  },
-  groupLabel: {
-    color: Colors.muted,
-    marginBottom: Spacing.sm,
-    marginTop: Spacing.xs,
-  },
-  cardGroup: {
-    padding: 0,
-    marginBottom: Spacing.lg,
-    overflow: 'hidden',
-  },
+  avatarText: { fontSize: 22, fontWeight: '700', color: Colors.white },
+  groupLabel: { color: Colors.muted, marginBottom: Spacing.sm, marginTop: Spacing.xs },
+  cardGroup: { padding: 0, marginBottom: Spacing.lg, overflow: 'hidden' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -173,11 +189,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.base,
   },
-  rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
+  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   iconBg: {
     width: 34,
     height: 34,
@@ -186,12 +198,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconBgDanger: {
-    backgroundColor: '#FFF0F0',
-  },
-  dangerText: {
-    color: '#FF3B30',
-  },
+  iconBgDanger: { backgroundColor: '#FFF0F0' },
+  dangerText: { color: '#FF3B30' },
   divider: {
     height: 1,
     backgroundColor: Colors.border,
@@ -203,7 +211,5 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: Radii.full,
   },
-  version: {
-    marginTop: Spacing.xl,
-  },
+  version: { marginTop: Spacing.xl },
 });

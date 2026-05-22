@@ -5,19 +5,31 @@ import Screen from '@/components/ui/Screen';
 import AppText from '@/components/ui/AppText';
 import PrimaryButton from '@/components/ui/PrimaryButton';
 import Card from '@/components/ui/Card';
-import { SUGGESTED_HABITS, DEMO_HABITS } from '@/data/mockHabits';
 import { useAppStore } from '@/store/useAppStore';
+import { ALL_GOALS } from '@/data/mockGoals';
+import { ALL_STRUGGLES } from '@/data/mockStruggles';
 import { Colors, Spacing } from '@/constants/theme';
 import { Copy } from '@/constants/copy';
-import { Habit } from '@/types';
 
 export default function ConfirmHabits() {
-  const { selectedHabitIds, selectedGoalIds, completeOnboarding, toggleHabit } = useAppStore();
+  const {
+    selectedHabitIds,
+    selectedGoalIds,
+    selectedStruggleIds,
+    availableHabits,
+    completeOnboarding,
+    toggleHabit,
+  } = useAppStore();
 
-  const allSuggested: Habit[] = selectedGoalIds.flatMap(
-    (goalId) => SUGGESTED_HABITS[goalId] ?? []
-  );
-  const selectedHabits = allSuggested.filter((h) => selectedHabitIds.includes(h.id));
+  const selectedHabits = availableHabits.filter((h) => selectedHabitIds.includes(h.id));
+
+  const goalLabels = selectedGoalIds
+    .map((id) => ALL_GOALS.find((g) => g.id === id))
+    .filter(Boolean);
+
+  const struggleLabels = selectedStruggleIds
+    .map((id) => ALL_STRUGGLES.find((s) => s.id === id))
+    .filter(Boolean);
 
   const handleFinish = () => {
     completeOnboarding();
@@ -34,9 +46,40 @@ export default function ConfirmHabits() {
         <AppText variant="body">{Copy.onboarding.confirmSubtitle}</AppText>
       </View>
 
-      <AppText variant="label" style={styles.sectionLabel}>
-        Your habits
-      </AppText>
+      {/* Goals summary */}
+      <AppText variant="label" style={styles.sectionLabel}>Your goals</AppText>
+      <Card style={styles.summaryCard}>
+        {goalLabels.map((goal, idx) => {
+          const isLast = idx === goalLabels.length - 1;
+          return (
+            <View key={goal!.id} style={[styles.summaryRow, !isLast && styles.rowBorder]}>
+              <AppText style={styles.rowEmoji}>{goal!.emoji}</AppText>
+              <AppText variant="bodyMedium">{goal!.label}</AppText>
+            </View>
+          );
+        })}
+      </Card>
+
+      {/* Struggles summary */}
+      {struggleLabels.length > 0 && (
+        <>
+          <AppText variant="label" style={styles.sectionLabel}>What you're working through</AppText>
+          <Card style={styles.summaryCard}>
+            {struggleLabels.map((struggle, idx) => {
+              const isLast = idx === struggleLabels.length - 1;
+              return (
+                <View key={struggle!.id} style={[styles.summaryRow, !isLast && styles.rowBorder]}>
+                  <AppText style={styles.rowEmoji}>{struggle!.emoji}</AppText>
+                  <AppText variant="bodyMedium">{struggle!.label}</AppText>
+                </View>
+              );
+            })}
+          </Card>
+        </>
+      )}
+
+      {/* Habits summary */}
+      <AppText variant="label" style={styles.sectionLabel}>Your habits</AppText>
       <Card style={styles.habitList}>
         {selectedHabits.length === 0 ? (
           <AppText variant="body" style={styles.emptyMsg}>
@@ -46,10 +89,7 @@ export default function ConfirmHabits() {
           selectedHabits.map((habit, idx) => {
             const isLast = idx === selectedHabits.length - 1;
             return (
-              <View
-                key={habit.id}
-                style={[styles.habitRow, !isLast && styles.habitBorder]}
-              >
+              <View key={habit.id} style={[styles.habitRow, !isLast && styles.rowBorder]}>
                 <View style={styles.checkDot} />
                 <AppText variant="bodyMedium" style={styles.habitTitle}>
                   {habit.title}
@@ -66,14 +106,9 @@ export default function ConfirmHabits() {
         )}
       </Card>
 
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={styles.addLink}
-      >
+      <TouchableOpacity onPress={() => router.back()} style={styles.addLink}>
         <Ionicons name="add-circle-outline" size={18} color={Colors.primaryBlue} />
-        <AppText variant="small" color="primaryBlue">
-          Add or change habits
-        </AppText>
+        <AppText variant="small" color="primaryBlue">Add or change habits</AppText>
       </TouchableOpacity>
 
       <View style={styles.footer}>
@@ -84,29 +119,24 @@ export default function ConfirmHabits() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingTop: Spacing.xl,
-    marginBottom: Spacing.xl,
-    gap: Spacing.sm,
+  header: { paddingTop: Spacing.xl, marginBottom: Spacing.xl, gap: Spacing.sm },
+  doneIcon: { marginBottom: Spacing.sm },
+  doneEmoji: { fontSize: 40 },
+
+  sectionLabel: { marginBottom: Spacing.sm, color: Colors.muted, marginTop: Spacing.xs },
+  summaryCard: { padding: 0, overflow: 'hidden', marginBottom: Spacing.lg },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.base,
   },
-  doneIcon: {
-    marginBottom: Spacing.sm,
-  },
-  doneEmoji: {
-    fontSize: 40,
-  },
-  sectionLabel: {
-    marginBottom: Spacing.sm,
-    color: Colors.muted,
-  },
-  habitList: {
-    padding: 0,
-    overflow: 'hidden',
-  },
-  emptyMsg: {
-    padding: Spacing.base,
-    color: Colors.muted,
-  },
+  rowEmoji: { fontSize: 18 },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
+
+  habitList: { padding: 0, overflow: 'hidden' },
+  emptyMsg: { padding: Spacing.base, color: Colors.muted },
   habitRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -114,19 +144,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.base,
   },
-  habitBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  checkDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.primaryBlue,
-  },
-  habitTitle: {
-    flex: 1,
-  },
+  checkDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primaryBlue },
+  habitTitle: { flex: 1 },
+
   addLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -134,8 +154,5 @@ const styles = StyleSheet.create({
     marginTop: Spacing.base,
     paddingVertical: Spacing.sm,
   },
-  footer: {
-    marginTop: Spacing.xxl,
-    paddingBottom: Spacing.xxxl,
-  },
+  footer: { marginTop: Spacing.xxl, paddingBottom: Spacing.xxxl },
 });

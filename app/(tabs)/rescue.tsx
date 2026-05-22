@@ -3,11 +3,12 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppText from '@/components/ui/AppText';
 import RescueFeelingCard from '@/components/rescue/RescueFeelingCard';
+import { useAppStore } from '@/store/useAppStore';
 import { Colors, Spacing } from '@/constants/theme';
 import { Copy } from '@/constants/copy';
-import { RescueFeeling } from '@/types';
+import { RescueFeeling, STRUGGLE_TO_RESCUE } from '@/types';
 
-const FEELINGS: RescueFeeling[] = [
+const ALL_FEELINGS: RescueFeeling[] = [
   'laziness',
   'distraction',
   'low-motivation',
@@ -20,6 +21,17 @@ const FEELINGS: RescueFeeling[] = [
 ];
 
 export default function RescueScreen() {
+  const { selectedStruggleIds } = useAppStore();
+
+  // Build a prioritised list: struggle-mapped feelings first, then the rest
+  const prioritised = selectedStruggleIds
+    .map((id) => STRUGGLE_TO_RESCUE[id])
+    .filter((f): f is RescueFeeling => f !== undefined);
+
+  const prioritisedUnique = [...new Set(prioritised)];
+  const rest = ALL_FEELINGS.filter((f) => !prioritisedUnique.includes(f));
+  const orderedFeelings = [...prioritisedUnique, ...rest];
+
   const handleFeeling = (feeling: RescueFeeling) => {
     router.push({ pathname: '/rescue-response', params: { feeling } });
   };
@@ -38,7 +50,7 @@ export default function RescueScreen() {
         </View>
 
         <View style={styles.feelings}>
-          {FEELINGS.map((feeling) => (
+          {orderedFeelings.map((feeling) => (
             <RescueFeelingCard
               key={feeling}
               feeling={feeling}
@@ -59,25 +71,10 @@ export default function RescueScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  content: {
-    paddingHorizontal: Spacing.base,
-    paddingBottom: Spacing.xxxl,
-  },
-  header: {
-    paddingTop: Spacing.xl,
-    marginBottom: Spacing.xl,
-    gap: Spacing.sm,
-  },
-  label: {
-    marginBottom: Spacing.xs,
-  },
-  title: {
-    letterSpacing: -0.3,
-  },
-  feelings: {
-    gap: 0,
-  },
-  footer: {
-    marginTop: Spacing.xl,
-  },
+  content: { paddingHorizontal: Spacing.base, paddingBottom: Spacing.xxxl },
+  header: { paddingTop: Spacing.xl, marginBottom: Spacing.xl, gap: Spacing.sm },
+  label: { marginBottom: Spacing.xs },
+  title: { letterSpacing: -0.3 },
+  feelings: { gap: 0 },
+  footer: { marginTop: Spacing.xl },
 });

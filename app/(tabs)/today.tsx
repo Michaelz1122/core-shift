@@ -7,16 +7,27 @@ import Card from '@/components/ui/Card';
 import HabitToggle from '@/components/habits/HabitToggle';
 import { ProgressBar } from '@/components/progress/ProgressCard';
 import { useAppStore } from '@/store/useAppStore';
-import { DEMO_HABITS } from '@/data/mockHabits';
 import { Colors, Spacing, Radii } from '@/constants/theme';
 import { Copy } from '@/constants/copy';
-import { getGreeting } from '@/utils/dates';
+
+function getPersonalisedGreeting(name: string): string {
+  const hour = new Date().getHours();
+  const base = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  return name ? `${base}, ${name}.` : `${base}.`;
+}
 
 export default function TodayScreen() {
-  const { toggleHabitCompletion, isHabitCompleted, todayCheckIn, selectedHabitIds } =
-    useAppStore();
+  const {
+    toggleHabitCompletion,
+    isHabitCompleted,
+    todayCheckIn,
+    selectedHabitIds,
+    availableHabits,
+    userName,
+  } = useAppStore();
 
-  const habits = DEMO_HABITS.filter((h) => selectedHabitIds.includes(h.id));
+  // Only show habits the user selected during onboarding
+  const habits = availableHabits.filter((h) => selectedHabitIds.includes(h.id));
   const completedCount = habits.filter((h) => isHabitCompleted(h.id)).length;
   const total = habits.length;
   const hasCheckIn = todayCheckIn !== null;
@@ -31,7 +42,7 @@ export default function TodayScreen() {
         {/* Greeting */}
         <View style={styles.greeting}>
           <AppText variant="h1" style={styles.greetText}>
-            {getGreeting()}
+            {getPersonalisedGreeting(userName)}
           </AppText>
           <AppText variant="body">{Copy.today.supportLine}</AppText>
         </View>
@@ -86,7 +97,9 @@ export default function TodayScreen() {
             <ProgressBar value={completedCount} total={total} />
           </View>
           <AppText variant="small">
-            {completedCount === total && total > 0
+            {total === 0
+              ? 'Your habits will appear here after onboarding.'
+              : completedCount === total
               ? 'All done for today! 🎉'
               : completedCount === 0
               ? 'Start your first habit for today.'
@@ -98,17 +111,12 @@ export default function TodayScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <AppText variant="h3">{Copy.today.habitsTitle}</AppText>
-            <TouchableOpacity onPress={() => {}}>
-              <AppText variant="small" color="primaryBlue">
-                {Copy.today.addHabit}
-              </AppText>
-            </TouchableOpacity>
           </View>
 
           {habits.length === 0 ? (
             <Card style={styles.emptyCard}>
               <AppText variant="body" align="center" color="muted">
-                No habits yet. Add one to get started.
+                No habits yet. Complete onboarding to add your first habits.
               </AppText>
             </Card>
           ) : (
@@ -116,9 +124,7 @@ export default function TodayScreen() {
               {habits.map((habit, idx) => (
                 <View
                   key={habit.id}
-                  style={[
-                    idx < habits.length - 1 && styles.habitDivider,
-                  ]}
+                  style={[idx < habits.length - 1 && styles.habitDivider]}
                 >
                   <HabitToggle
                     title={habit.title}
@@ -155,43 +161,22 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: Spacing.base,
-    paddingBottom: Spacing.xxxl,
-  },
-  greeting: {
-    paddingTop: Spacing.xl,
-    marginBottom: Spacing.lg,
-    gap: Spacing.xs,
-  },
-  greetText: {
-    letterSpacing: -0.3,
-  },
+  safe: { flex: 1, backgroundColor: Colors.background },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: Spacing.base, paddingBottom: Spacing.xxxl },
 
-  // Check-in card
+  greeting: { paddingTop: Spacing.xl, marginBottom: Spacing.lg, gap: Spacing.xs },
+  greetText: { letterSpacing: -0.3 },
+
   checkinCard: {
     backgroundColor: Colors.primaryBlue,
     borderRadius: Radii.xl,
     padding: Spacing.lg,
     marginBottom: Spacing.base,
   },
-  checkinTop: {
-    gap: Spacing.xs,
-    marginBottom: Spacing.base,
-  },
-  checkinTitle: {
-    color: Colors.white,
-  },
-  checkinSub: {
-    color: 'rgba(255,255,255,0.75)',
-  },
+  checkinTop: { gap: Spacing.xs, marginBottom: Spacing.base },
+  checkinTitle: { color: Colors.white },
+  checkinSub: { color: 'rgba(255,255,255,0.75)' },
   checkinBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -202,59 +187,26 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: Radii.full,
   },
-  checkinBtnText: {
-    color: Colors.primaryBlue,
-    fontWeight: '600',
-  },
-  checkinDone: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  checkinDoneText: {
-    gap: 2,
-  },
-  checkinDoneTitle: {
-    color: Colors.white,
-  },
+  checkinBtnText: { color: Colors.primaryBlue, fontWeight: '600' },
+  checkinDone: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  checkinDoneText: { gap: 2 },
+  checkinDoneTitle: { color: Colors.white },
 
-  // Progress
-  progressCard: {
-    marginBottom: Spacing.xl,
-    gap: Spacing.sm,
-  },
-  progressTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  progressBar: {
-    marginVertical: Spacing.xs,
-  },
+  progressCard: { marginBottom: Spacing.xl, gap: Spacing.sm },
+  progressTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  progressBar: { marginVertical: Spacing.xs },
 
-  // Habits
-  section: {
-    marginBottom: Spacing.xl,
-  },
+  section: { marginBottom: Spacing.xl },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.sm,
   },
-  habitCard: {
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.base,
-  },
-  habitDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  emptyCard: {
-    paddingVertical: Spacing.xxl,
-  },
+  habitCard: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.base },
+  habitDivider: { borderBottomWidth: 1, borderBottomColor: Colors.border },
+  emptyCard: { paddingVertical: Spacing.xxl },
 
-  // Rescue
   rescueCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -265,15 +217,8 @@ const styles = StyleSheet.create({
     padding: Spacing.base,
     gap: Spacing.md,
   },
-  rescueContent: {
-    flex: 1,
-    gap: Spacing.xs,
-  },
-  rescueTitle: {
-    color: Colors.charcoal,
-  },
-  rescueSub: {
-    color: Colors.charcoalSoft,
-  },
+  rescueContent: { flex: 1, gap: Spacing.xs },
+  rescueTitle: { color: Colors.charcoal },
+  rescueSub: { color: Colors.charcoalSoft },
   rescueArrow: {},
 });
