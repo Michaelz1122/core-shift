@@ -10,7 +10,7 @@ import { Copy } from '@/constants/copy';
 import { formatDate, getTodayString } from '@/utils/dates';
 
 export default function NewNoteScreen() {
-  const { addNote } = useAppStore();
+  const { addNote, isDarkMode } = useAppStore();
   const [content, setContent] = useState('');
 
   const handleSave = () => {
@@ -19,15 +19,17 @@ export default function NewNoteScreen() {
     router.back();
   };
 
+  const themeBg = isDarkMode ? '#121214' : Colors.background;
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: themeBg }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
-        style={styles.flex}
+        style={[styles.flex, { backgroundColor: themeBg }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.headerBar}>
           <TouchableOpacity onPress={() => router.back()} style={styles.btn}>
-            <Ionicons name="close" size={24} color={Colors.charcoal} />
+            <Ionicons name="close" size={24} color={isDarkMode ? '#FFFFFF' : Colors.charcoal} />
           </TouchableOpacity>
           <AppText variant="small" color="muted">
             {formatDate(getTodayString())}

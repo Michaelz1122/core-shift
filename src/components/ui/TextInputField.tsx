@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, Radii } from '@/constants/theme';
+import { useAppStore } from '@/store/useAppStore';
 import AppText from './AppText';
 
 interface TextInputFieldProps extends TextInputProps {
@@ -27,6 +28,13 @@ export default function TextInputField({
   ...props
 }: TextInputFieldProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const isDarkMode = useAppStore((state) => state.isDarkMode);
+
+  // Dynamic theme colors for text fields
+  const inputBg = isDarkMode ? '#121214' : Colors.card;
+  const inputBorder = isDarkMode ? '#2C2C2E' : Colors.border;
+  const inputColor = isDarkMode ? '#FFFFFF' : Colors.charcoal;
+  const placeholderColor = isDarkMode ? '#8E8E93' : Colors.muted;
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -35,10 +43,14 @@ export default function TextInputField({
           {label}
         </AppText>
       ) : null}
-      <View style={[styles.inputRow, error ? styles.inputError : null]}>
+      <View style={[
+        styles.inputRow,
+        { backgroundColor: inputBg, borderColor: inputBorder },
+        error ? styles.inputError : null
+      ]}>
         <TextInput
-          style={[styles.input, style]}
-          placeholderTextColor={Colors.muted}
+          style={[styles.input, { color: inputColor }, style]}
+          placeholderTextColor={placeholderColor}
           secureTextEntry={isPassword && !showPassword}
           autoCapitalize="none"
           {...props}
@@ -51,7 +63,7 @@ export default function TextInputField({
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={20}
-              color={Colors.muted}
+              color={placeholderColor}
             />
           </TouchableOpacity>
         ) : null}
@@ -71,15 +83,12 @@ const styles = StyleSheet.create({
   },
   label: {
     marginBottom: Spacing.xs,
-    color: Colors.charcoalSoft,
     fontWeight: '500',
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.card,
     borderWidth: 1,
-    borderColor: Colors.border,
     borderRadius: Radii.md,
     paddingHorizontal: Spacing.base,
     minHeight: 52,
@@ -90,7 +99,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: Typography.base,
-    color: Colors.charcoal,
     paddingVertical: Spacing.md,
   },
   eyeBtn: {

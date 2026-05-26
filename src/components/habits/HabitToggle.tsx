@@ -8,26 +8,38 @@ interface HabitToggleProps {
   title: string;
   completed: boolean;
   onToggle: () => void;
+  onPressDetails?: () => void;
 }
 
-export default function HabitToggle({ title, completed, onToggle }: HabitToggleProps) {
+export default function HabitToggle({ title, completed, onToggle, onPressDetails }: HabitToggleProps) {
   return (
-    <TouchableOpacity
-      style={[styles.row, completed ? styles.rowDone : null]}
-      onPress={onToggle}
-      activeOpacity={0.7}
-    >
-      <View style={[styles.check, completed ? styles.checkDone : null]}>
-        {completed && <Ionicons name="checkmark" size={14} color={Colors.white} />}
-      </View>
-      <AppText
-        variant="bodyMedium"
-        style={[styles.text, completed ? styles.textDone : null]}
-        numberOfLines={1}
+    <View style={[styles.row, completed ? styles.rowDone : null]}>
+      <TouchableOpacity
+        style={[styles.check, completed ? styles.checkDone : null]}
+        onPress={onToggle}
+        activeOpacity={0.7}
       >
-        {title}
-      </AppText>
-    </TouchableOpacity>
+        {completed && <Ionicons name="checkmark" size={14} color={Colors.white} />}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.detailsClickable}
+        onPress={onPressDetails}
+        disabled={!onPressDetails}
+        activeOpacity={0.6}
+      >
+        <AppText
+          variant="bodyMedium"
+          style={[styles.text, completed ? styles.textDone : null]}
+          numberOfLines={1}
+        >
+          {title}
+        </AppText>
+        {onPressDetails && (
+          <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
+        )}
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -35,8 +47,8 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
   },
   rowDone: {
     opacity: 0.7,
@@ -53,6 +65,13 @@ const styles = StyleSheet.create({
   checkDone: {
     backgroundColor: Colors.primaryBlue,
     borderColor: Colors.primaryBlue,
+  },
+  detailsClickable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.xs,
   },
   text: {
     flex: 1,

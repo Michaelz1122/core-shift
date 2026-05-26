@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Screen from '@/components/ui/Screen';
@@ -17,8 +17,26 @@ export default function SignUpScreen() {
   const { setUser } = useAppStore();
 
   const handleSignUp = () => {
-    const displayName = name.trim() || 'User';
-    setUser(displayName, email || 'user@example.com', 'email');
+    const displayName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPass = password.trim();
+
+    if (!displayName || !trimmedEmail || !trimmedPass) {
+      Alert.alert('Required Fields', 'Please fill in all details to create your account.');
+      return;
+    }
+
+    if (!trimmedEmail.includes('@')) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+
+    if (trimmedPass.length < 6) {
+      Alert.alert('Weak Password', 'Password must be at least 6 characters.');
+      return;
+    }
+
+    setUser(displayName, trimmedEmail, 'email');
     router.replace('/onboarding');
   };
 

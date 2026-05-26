@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography } from '@/constants/theme';
 import { Platform } from 'react-native';
+import { useAppStore } from '@/store/useAppStore';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -22,6 +23,10 @@ function TabIcon({
 }
 
 export default function TabLayout() {
+  const isDarkMode = useAppStore((state) => state.isDarkMode);
+  const tabBg = isDarkMode ? '#1C1C1E' : Colors.card;
+  const tabBorder = isDarkMode ? '#2C2C2E' : Colors.border;
+
   return (
     <Tabs
       screenOptions={{
@@ -29,8 +34,8 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors.primaryBlue,
         tabBarInactiveTintColor: Colors.muted,
         tabBarStyle: {
-          backgroundColor: Colors.card,
-          borderTopColor: Colors.border,
+          backgroundColor: tabBg,
+          borderTopColor: tabBorder,
           borderTopWidth: 1,
           paddingTop: 8,
           paddingBottom: Platform.OS === 'ios' ? 24 : 10,

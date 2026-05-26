@@ -2,6 +2,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-nat
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import AppText from '@/components/ui/AppText';
 import Card from '@/components/ui/Card';
 import { useAppStore } from '@/store/useAppStore';
@@ -41,7 +42,7 @@ function SettingsRow({ icon, label, onPress, rightContent, danger }: SettingsRow
 }
 
 export default function SettingsScreen() {
-  const { userName, userEmail, resetAll } = useAppStore();
+  const { userName, userEmail, resetAll, isDarkMode, toggleDarkMode } = useAppStore();
 
   const avatarLetter = userName ? userName.charAt(0).toUpperCase() : '?';
 
@@ -63,9 +64,20 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleToggleDarkMode = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    toggleDarkMode();
+  };
+
+  const themeBg = isDarkMode ? '#121214' : Colors.background;
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: themeBg }]} edges={['top']}>
+      <ScrollView
+        style={{ backgroundColor: themeBg }}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <AppText variant="h1">{Copy.settings.header}</AppText>
         </View>
@@ -89,7 +101,7 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="list-outline"
             label={Copy.settings.manageHabits}
-            onPress={() => {}}
+            onPress={() => router.push('/onboarding/habits')}
           />
           <View style={styles.divider} />
           <SettingsRow
@@ -119,14 +131,23 @@ export default function SettingsScreen() {
         <AppText variant="label" style={styles.groupLabel}>Preferences</AppText>
         <Card style={styles.cardGroup}>
           <SettingsRow
-            icon="moon-outline"
+            icon={isDarkMode ? 'moon' : 'moon-outline'}
             label={Copy.settings.darkMode}
+            onPress={handleToggleDarkMode}
             rightContent={
-              <View style={styles.comingSoon}>
-                <AppText variant="caption" color="muted">
-                  {Copy.settings.darkModeNote}
-                </AppText>
-              </View>
+              <TouchableOpacity
+                onPress={handleToggleDarkMode}
+                activeOpacity={0.8}
+                style={[
+                  styles.switchTrack,
+                  isDarkMode && styles.switchTrackActive
+                ]}
+              >
+                <View style={[
+                  styles.switchThumb,
+                  isDarkMode && styles.switchThumbActive
+                ]} />
+              </TouchableOpacity>
             }
           />
         </Card>
@@ -205,11 +226,31 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
     marginLeft: Spacing.base + 34 + Spacing.md,
   },
-  comingSoon: {
+  // High fidelity custom Switch styling
+  switchTrack: {
+    width: 46,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: Colors.border,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: Radii.full,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  switchTrackActive: {
+    backgroundColor: Colors.primaryBlue,
+  },
+  switchThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  switchThumbActive: {
+    transform: [{ translateX: 20 }],
   },
   version: { marginTop: Spacing.xl },
 });

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing } from '@/constants/theme';
+import { useAppStore } from '@/store/useAppStore';
 
 interface ScreenProps {
   children: React.ReactNode;
@@ -27,9 +28,12 @@ export default function Screen({
   edges = ['top', 'bottom'],
   keyboardAvoiding = false,
 }: ScreenProps) {
+  const isDarkMode = useAppStore((state) => state.isDarkMode);
+  const themeBg = isDarkMode ? '#121214' : Colors.background;
+
   const inner = scroll ? (
     <ScrollView
-      style={styles.scroll}
+      style={[styles.scroll, { backgroundColor: themeBg }]}
       contentContainerStyle={[styles.scrollContent, contentStyle]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
@@ -37,7 +41,7 @@ export default function Screen({
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.content, contentStyle]}>{children}</View>
+    <View style={[styles.content, { backgroundColor: themeBg }, contentStyle]}>{children}</View>
   );
 
   const wrapped = keyboardAvoiding ? (
@@ -52,7 +56,7 @@ export default function Screen({
   );
 
   return (
-    <SafeAreaView style={[styles.safe, style]} edges={edges}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: themeBg }, style]} edges={edges}>
       {wrapped}
     </SafeAreaView>
   );
@@ -61,7 +65,6 @@ export default function Screen({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   flex: {
     flex: 1,

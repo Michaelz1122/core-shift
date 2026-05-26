@@ -2,12 +2,14 @@ import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import AppText from '@/components/ui/AppText';
 import Card from '@/components/ui/Card';
 import HabitToggle from '@/components/habits/HabitToggle';
 import { ProgressBar } from '@/components/progress/ProgressCard';
 import { useAppStore } from '@/store/useAppStore';
-import { Colors, Spacing, Radii } from '@/constants/theme';
+import { Colors, Spacing, Radii, Gradients, Shadows } from '@/constants/theme';
 import { Copy } from '@/constants/copy';
 
 function getPersonalisedGreeting(name: string): string {
@@ -24,7 +26,14 @@ export default function TodayScreen() {
     selectedHabitIds,
     availableHabits,
     userName,
+    xp,
+    level,
+    isDarkMode,
   } = useAppStore();
+
+  const xpInCurrentLevel = xp % 100;
+  const xpPercent = xpInCurrentLevel / 100;
+  const xpToNextLevel = 100 - xpInCurrentLevel;
 
   // Only show habits the user selected during onboarding
   const habits = availableHabits.filter((h) => selectedHabitIds.includes(h.id));
@@ -32,19 +41,66 @@ export default function TodayScreen() {
   const total = habits.length;
   const hasCheckIn = todayCheckIn !== null;
 
+  const themeBg = isDarkMode ? '#121214' : Colors.background;
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: themeBg }]} edges={['top']}>
       <ScrollView
-        style={styles.scroll}
+        style={[styles.scroll, { backgroundColor: themeBg }]}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Greeting */}
-        <View style={styles.greeting}>
-          <AppText variant="h1" style={styles.greetText}>
-            {getPersonalisedGreeting(userName)}
-          </AppText>
-          <AppText variant="body">{Copy.today.supportLine}</AppText>
+        {/* Gamified Level & Greeting Header */}
+        <View style={styles.gamifiedHeader}>
+          <View style={styles.headerTopRow}>
+            <View style={styles.greetingCol}>
+              <AppText variant="h2" style={styles.greetText}>
+                {getPersonalisedGreeting(userName)}
+              </AppText>
+              <View style={styles.badgeRow}>
+                <AppText variant="small" style={styles.levelBadgeText}>
+                  Level {level} · Mind Shifter
+                </AppText>
+              </View>
+            </View>
+
+            {/* Level Badge Circle */}
+            <LinearGradient
+              colors={Gradients.xp}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.levelCircleGradient}
+            >
+              <View style={styles.levelCircleInner}>
+                <AppText variant="h3" style={styles.levelCircleNumber}>
+                  {level}
+                </AppText>
+                <AppText variant="caption" style={styles.levelCircleLabel}>
+                  LVL
+                </AppText>
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* XP Progress Bar */}
+          <View style={styles.xpBarContainer}>
+            <View style={styles.xpBarLabels}>
+              <AppText variant="caption" style={styles.xpLabel}>
+                Self-Mastery XP
+              </AppText>
+              <AppText variant="caption" style={styles.xpLabel}>
+                {xpInCurrentLevel}/100 XP ({xpToNextLevel} to LVL {level + 1})
+              </AppText>
+            </View>
+            <View style={styles.xpTrack}>
+              <LinearGradient
+                colors={Gradients.xp}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.xpFill, { width: `${xpPercent * 100}%` }]}
+              />
+            </View>
+          </View>
         </View>
 
         {/* Daily Check-in Card */}
@@ -129,7 +185,17 @@ export default function TodayScreen() {
                   <HabitToggle
                     title={habit.title}
                     completed={isHabitCompleted(habit.id)}
-                    onToggle={() => toggleHabitCompletion(habit.id)}
+                    onToggle={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      toggleHabitCompletion(habit.id);
+                    }}
+                    onPressDetails={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      router.push({
+                        pathname: '/habit-detail',
+                        params: { id: habit.id },
+                      });
+                    }}
                   />
                 </View>
               ))}
@@ -139,7 +205,13 @@ export default function TodayScreen() {
 
         {/* Rescue Mode Card */}
         <TouchableOpacity
-          style={styles.rescueCard}
+          style={[
+            styles.rescueCard,
+            {
+              backgroundColor: isDarkMode ? 'rgba(45, 127, 249, 0.15)' : Colors.blueLight,
+              borderColor: isDarkMode ? '#2C2C2E' : Colors.primaryBlue + '33',
+            }
+          ]}
           onPress={() => router.push('/(tabs)/rescue')}
           activeOpacity={0.85}
         >
@@ -165,7 +237,81 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: Spacing.base, paddingBottom: Spacing.xxxl },
 
-  greeting: { paddingTop: Spacing.xl, marginBottom: Spacing.lg, gap: Spacing.xs },
+  gamifiedHeader: {
+    paddingTop: Spacing.xl,
+    marginBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  greetingCol: {
+    flex: 1,
+    paddingRight: Spacing.sm,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+  },
+  levelBadgeText: {
+    color: Colors.charcoalSoft,
+    fontWeight: '500',
+  },
+  levelCircleGradient: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    padding: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Shadows.sm,
+  },
+  levelCircleInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  levelCircleNumber: {
+    color: Colors.primaryBlue,
+    fontWeight: '700',
+    fontSize: 18,
+    lineHeight: 20,
+  },
+  levelCircleLabel: {
+    color: Colors.muted,
+    fontSize: 8,
+    fontWeight: '700',
+    marginTop: -2,
+  },
+  xpBarContainer: {
+    gap: Spacing.xs,
+  },
+  xpBarLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  xpLabel: {
+    color: Colors.muted,
+    fontWeight: '500',
+  },
+  xpTrack: {
+    height: 8,
+    backgroundColor: Colors.border,
+    borderRadius: Radii.full,
+    overflow: 'hidden',
+  },
+  xpFill: {
+    height: '100%',
+    borderRadius: Radii.full,
+  },
   greetText: { letterSpacing: -0.3 },
 
   checkinCard: {

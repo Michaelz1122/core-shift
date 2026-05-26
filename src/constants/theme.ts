@@ -10,6 +10,17 @@ export const Colors = {
   white: '#FFFFFF',
   success: '#34C759',
   successLight: '#E8F8ED',
+  red: '#FF3B30',
+} as const;
+
+export const Gradients = {
+  primary: ['#2D7FF9', '#5B9CFF'] as const,
+  purple: ['#7C4DFF', '#B388FF'] as const,
+  gold: ['#FFD600', '#FFEA00'] as const,
+  xp: ['#2D7FF9', '#8A2BE2'] as const,
+  danger: ['#FF3B30', '#FF453A'] as const,
+  success: ['#34C759', '#30D158'] as const,
+  cardBg: ['#FFFFFF', '#FDFDFD'] as const,
 } as const;
 
 export const Typography = {

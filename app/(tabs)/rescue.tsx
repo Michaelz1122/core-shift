@@ -21,7 +21,7 @@ const ALL_FEELINGS: RescueFeeling[] = [
 ];
 
 export default function RescueScreen() {
-  const { selectedStruggleIds } = useAppStore();
+  const { selectedStruggleIds, isDarkMode } = useAppStore();
 
   // Build a prioritised list: struggle-mapped feelings first, then the rest
   const prioritised = selectedStruggleIds
@@ -36,9 +36,15 @@ export default function RescueScreen() {
     router.push({ pathname: '/rescue-response', params: { feeling } });
   };
 
+  const themeBg = isDarkMode ? '#121214' : Colors.background;
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: themeBg }]} edges={['top']}>
+      <ScrollView
+        style={{ backgroundColor: themeBg }}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <AppText variant="label" color="primaryBlue" style={styles.label}>
             {Copy.rescue.header}

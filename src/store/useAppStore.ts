@@ -30,12 +30,17 @@ interface AppStore {
   // Notes
   notes: Note[];
 
-  // Stats (lightweight counters)
+  // Stats & Gamification
   totalHabitsCompleted: number;
+  xp: number;
+  level: number;
+  streakHistory: Record<string, boolean>; // 'YYYY-MM-DD' -> true
 
   // Settings
   dailyReminderEnabled: boolean;
   dailyReminderTime: string;
+  reminderArchetype: 'zen' | 'copilot' | 'discipline';
+  isDarkMode: boolean;
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -47,6 +52,7 @@ interface AppStore {
   toggleStruggle: (id: StruggleId) => void;
   buildAvailableHabits: () => void;
   toggleHabit: (id: string) => void;
+  addCustomHabit: (title: string, goalId: GoalId, frequency: 'daily' | 'weekly') => void;
   completeOnboarding: () => void;
 
   // Today — date-aware helpers
@@ -62,6 +68,11 @@ interface AppStore {
 
   // Settings
   setDailyReminder: (enabled: boolean, time?: string) => void;
+  setReminderArchetype: (archetype: 'zen' | 'copilot' | 'discipline') => void;
+  toggleDarkMode: () => void;
+
+  // Gamification Actions
+  addXp: (amount: number) => void;
 
   // Dev/testing
   resetAll: () => void;
@@ -76,6 +87,7 @@ const INITIAL: Omit<
   | 'toggleStruggle'
   | 'buildAvailableHabits'
   | 'toggleHabit'
+  | 'addCustomHabit'
   | 'completeOnboarding'
   | 'checkDateReset'
   | 'toggleHabitCompletion'
@@ -85,6 +97,9 @@ const INITIAL: Omit<
   | 'addNote'
   | 'deleteNote'
   | 'setDailyReminder'
+  | 'setReminderArchetype'
+  | 'toggleDarkMode'
+  | 'addXp'
   | 'resetAll'
 > = {
   userName: '',
@@ -102,8 +117,13 @@ const INITIAL: Omit<
   checkInDate: '',
   notes: [],
   totalHabitsCompleted: 0,
+  xp: 0,
+  level: 1,
+  streakHistory: {},
   dailyReminderEnabled: false,
   dailyReminderTime: '08:00',
+  reminderArchetype: 'copilot',
+  isDarkMode: false,
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -135,12 +155,14 @@ export const useAppStore = create<AppStore>()(
         }
       },
       buildAvailableHabits: () => {
-        const { selectedGoalIds, selectedStruggleIds } = get();
-        const habits = generateHabitSuggestions(selectedGoalIds, selectedStruggleIds);
-        // Pre-select all suggested habits so the user sees them ticked by default
+        const { availableHabits } = get();
+        // Safeguard: Do not rebuild and overwrite if habits are already loaded/added!
+        if (availableHabits.length > 0) return;
+
+        // Initialize empty to allow 100% custom user-defined habits under selected pathways
         set({
-          availableHabits: habits,
-          selectedHabitIds: habits.map((h) => h.id),
+          availableHabits: [],
+          selectedHabitIds: [],
         });
       },
       toggleHabit: (id) => {
@@ -150,6 +172,22 @@ export const useAppStore = create<AppStore>()(
         } else {
           set({ selectedHabitIds: [...current, id] });
         }
+      },
+      addCustomHabit: (title, goalId, frequency) => {
+        const id = `custom-${Date.now()}`;
+        const newHabit: Habit = {
+          id,
+          title,
+          goalId,
+          frequency,
+          isCustom: true,
+        };
+        const currentAvailable = get().availableHabits;
+        const currentSelected = get().selectedHabitIds;
+        set({
+          availableHabits: [...currentAvailable, newHabit],
+          selectedHabitIds: [...currentSelected, id],
+        });
       },
       completeOnboarding: () =>
         set({
@@ -183,13 +221,37 @@ export const useAppStore = create<AppStore>()(
 
         const current = get().completedHabitIdsToday;
         const wasCompleted = current.includes(habitId);
+
+        const newCompletions = wasCompleted
+          ? current.filter((id) => id !== habitId)
+          : [...current, habitId];
+
+        // Reward +10 XP for completion, subtract -10 XP for un-completion to prevent farming
+        const xpChange = wasCompleted ? -10 : 10;
+        const currentXp = get().xp;
+        const newXp = Math.max(0, currentXp + xpChange);
+        const newLevel = Math.floor(newXp / 100) + 1;
+
+        // Check if all selected habits for today are completed to update streakHistory
+        const selectedHabits = get().selectedHabitIds.filter(id => 
+          get().availableHabits.some(h => h.id === id)
+        );
+        const isAllDone = selectedHabits.length > 0 && selectedHabits.every(id => newCompletions.includes(id));
+        const currentStreakHistory = { ...get().streakHistory };
+        if (isAllDone) {
+          currentStreakHistory[today] = true;
+        } else {
+          delete currentStreakHistory[today];
+        }
+
         set({
-          completedHabitIdsToday: wasCompleted
-            ? current.filter((id) => id !== habitId)
-            : [...current, habitId],
+          completedHabitIdsToday: newCompletions,
           totalHabitsCompleted: wasCompleted
             ? Math.max(0, get().totalHabitsCompleted - 1)
             : get().totalHabitsCompleted + 1,
+          xp: newXp,
+          level: newLevel,
+          streakHistory: currentStreakHistory,
         });
       },
       isHabitCompleted: (habitId) => {
@@ -200,7 +262,34 @@ export const useAppStore = create<AppStore>()(
       },
       saveCheckIn: (data) => {
         const today = getTodayString();
-        set({ todayCheckIn: { ...data, date: today }, checkInDate: today });
+        const state = get();
+        
+        // Only award XP once per day for the check-in
+        const isNewCheckIn = state.todayCheckIn === null || state.checkInDate !== today;
+        const xpChange = isNewCheckIn ? 25 : 0;
+        const currentXp = get().xp;
+        const newXp = Math.max(0, currentXp + xpChange);
+        const newLevel = Math.floor(newXp / 100) + 1;
+
+        let currentNotes = [...state.notes];
+        // If a check-in note is typed, automatically create a beautiful reflection log entry!
+        if (data.note && data.note.trim()) {
+          const checkInNote: Note = {
+            id: `note-${Date.now()}`,
+            date: today,
+            content: `Daily Reflection [Mood: ${data.mood} · Energy: ${data.energy}/5 · Focus: ${data.focus}/5]: ${data.note.trim()}`,
+            createdAt: new Date().toISOString(),
+          };
+          currentNotes = [checkInNote, ...currentNotes];
+        }
+
+        set({ 
+          todayCheckIn: { ...data, date: today }, 
+          checkInDate: today,
+          xp: newXp,
+          level: newLevel,
+          notes: currentNotes
+        });
       },
       getTodayCheckIn: () => {
         const today = getTodayString();
@@ -216,7 +305,17 @@ export const useAppStore = create<AppStore>()(
           content,
           createdAt: new Date().toISOString(),
         };
-        set({ notes: [note, ...get().notes] });
+
+        // Award +15 XP for adding a self-reflection note
+        const currentXp = get().xp;
+        const newXp = Math.max(0, currentXp + 15);
+        const newLevel = Math.floor(newXp / 100) + 1;
+
+        set({ 
+          notes: [note, ...get().notes],
+          xp: newXp,
+          level: newLevel
+        });
       },
       deleteNote: (id) =>
         set({ notes: get().notes.filter((n) => n.id !== id) }),
@@ -227,6 +326,20 @@ export const useAppStore = create<AppStore>()(
           dailyReminderEnabled: enabled,
           dailyReminderTime: time ?? get().dailyReminderTime,
         }),
+      setReminderArchetype: (archetype) =>
+        set({
+          reminderArchetype: archetype,
+        }),
+      toggleDarkMode: () =>
+        set({ isDarkMode: !get().isDarkMode }),
+
+      // ── Gamification Actions ──────────────────────────────────────────────
+      addXp: (amount) => {
+        const currentXp = get().xp;
+        const newXp = Math.max(0, currentXp + amount);
+        const newLevel = Math.floor(newXp / 100) + 1;
+        set({ xp: newXp, level: newLevel });
+      },
 
       // ── Dev reset ─────────────────────────────────────────────────────────
       resetAll: () => set({ ...INITIAL }),

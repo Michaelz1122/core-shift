@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Colors, Radii, Shadows, Spacing } from '@/constants/theme';
+import { useAppStore } from '@/store/useAppStore';
 
 interface CardProps {
   children: React.ReactNode;
@@ -15,14 +16,30 @@ export default function Card({
   variant = 'default',
   padding = Spacing.base,
 }: CardProps) {
+  const isDarkMode = useAppStore((state) => state.isDarkMode);
+
+  // Resolve dynamic background & border colors based on theme mode
+  const cardBg = isDarkMode
+    ? variant === 'highlighted' ? 'rgba(45, 127, 249, 0.15)' : '#1C1C1E'
+    : variant === 'highlighted' ? Colors.blueLight : Colors.card;
+
+  const cardBorder = isDarkMode
+    ? variant === 'highlighted' ? Colors.primaryBlue : '#2C2C2E'
+    : variant === 'highlighted' ? Colors.primaryBlue : Colors.border;
+
+  const dynamicStyles = {
+    backgroundColor: cardBg,
+    borderColor: cardBorder,
+    borderWidth: variant === 'flat' ? 0 : (variant === 'highlighted' ? 1.5 : 1),
+  };
+
   return (
     <View
       style={[
         styles.base,
-        variant === 'highlighted' ? styles.highlighted : null,
-        variant === 'flat' ? styles.flat : null,
-        { padding },
         style,
+        dynamicStyles,
+        { padding },
       ]}
     >
       {children}
@@ -32,20 +49,7 @@ export default function Card({
 
 const styles = StyleSheet.create({
   base: {
-    backgroundColor: Colors.card,
     borderRadius: Radii.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
     ...Shadows.sm,
-  },
-  highlighted: {
-    backgroundColor: Colors.blueLight,
-    borderColor: Colors.primaryBlue,
-    borderWidth: 1.5,
-  },
-  flat: {
-    backgroundColor: Colors.card,
-    borderWidth: 0,
-    ...Shadows.md,
   },
 });

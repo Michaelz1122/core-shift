@@ -12,10 +12,12 @@ import { MoodType } from '@/types';
 import { Colors, Spacing, Radii } from '@/constants/theme';
 import { Copy } from '@/constants/copy';
 
+import * as Haptics from 'expo-haptics';
+
 const MOODS: MoodType[] = ['calm', 'tired', 'focused', 'stressed', 'low', 'motivated'];
 
 export default function CheckInScreen() {
-  const { saveCheckIn } = useAppStore();
+  const { saveCheckIn, isDarkMode } = useAppStore();
   const [mood, setMood] = useState<MoodType | null>(null);
   const [energy, setEnergy] = useState(0);
   const [focus, setFocus] = useState(0);
@@ -25,21 +27,28 @@ export default function CheckInScreen() {
 
   const handleSave = () => {
     if (!mood) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     saveCheckIn({ mood, energy, focus, note: note.trim() || undefined });
     router.back();
   };
 
+  const themeBg = isDarkMode ? '#121214' : Colors.background;
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: themeBg }]} edges={['top', 'bottom']}>
       <View style={styles.headerBar}>
         <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
-          <Ionicons name="close" size={24} color={Colors.charcoal} />
+          <Ionicons name="close" size={24} color={isDarkMode ? '#FFFFFF' : Colors.charcoal} />
         </TouchableOpacity>
         <AppText variant="h3">{Copy.checkin.title}</AppText>
         <View style={styles.closeBtn} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={{ backgroundColor: themeBg }}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Mood */}
         <View style={styles.section}>
           <AppText variant="bodyMedium" style={styles.sectionLabel}>

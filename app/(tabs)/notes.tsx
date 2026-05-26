@@ -1,7 +1,8 @@
-import { View, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import AppText from '@/components/ui/AppText';
 import Card from '@/components/ui/Card';
 import EmptyState from '@/components/ui/EmptyState';
@@ -12,23 +13,51 @@ import { Copy } from '@/constants/copy';
 import { formatShortDate } from '@/utils/dates';
 
 export default function NotesScreen() {
-  const { notes } = useAppStore();
+  const { notes, deleteNote, isDarkMode } = useAppStore();
+
+  const handleDeleteNote = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      'Delete Reflection Note',
+      'Are you sure you want to permanently delete this self-reflection note?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            deleteNote(id);
+          },
+        },
+      ]
+    );
+  };
 
   const renderNote = ({ item }: { item: Note }) => (
     <Card style={styles.noteCard}>
-      <View style={styles.noteMeta}>
+      <View style={styles.noteHeader}>
         <AppText variant="caption" color="muted">
-          {formatShortDate(item.date)}
+          {formatShortDate(item.createdAt)}
         </AppText>
+        <TouchableOpacity
+          onPress={() => handleDeleteNote(item.id)}
+          style={styles.deleteBtn}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="trash-outline" size={16} color={Colors.red} />
+        </TouchableOpacity>
       </View>
-      <AppText variant="body" style={styles.notePreview} numberOfLines={3}>
+      <AppText variant="body" style={styles.notePreview}>
         {item.content}
       </AppText>
     </Card>
   );
 
+  const themeBg = isDarkMode ? '#121214' : Colors.background;
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: themeBg }]} edges={['top']}>
       <View style={styles.header}>
         <View>
           <AppText variant="h1">{Copy.notes.header}</AppText>
@@ -101,11 +130,18 @@ const styles = StyleSheet.create({
   },
   noteCard: {
     marginBottom: Spacing.sm,
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
-  noteMeta: {
+  noteHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingBottom: Spacing.xs,
+  },
+  deleteBtn: {
+    padding: Spacing.xs,
   },
   notePreview: {
     color: Colors.charcoalSoft,

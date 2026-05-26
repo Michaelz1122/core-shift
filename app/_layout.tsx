@@ -4,21 +4,25 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { Colors } from '@/constants/theme';
+import { useAppStore } from '@/store/useAppStore';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const isDarkMode = useAppStore((state) => state.isDarkMode);
+  const themeBg = isDarkMode ? '#121214' : Colors.background;
+
   useEffect(() => {
     SplashScreen.hideAsync();
   }, []);
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: Colors.background },
+          contentStyle: { backgroundColor: themeBg },
           animation: 'slide_from_right',
         }}
       >

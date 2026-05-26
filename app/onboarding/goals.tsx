@@ -1,3 +1,4 @@
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import Screen from '@/components/ui/Screen';
@@ -6,8 +7,7 @@ import PrimaryButton from '@/components/ui/PrimaryButton';
 import GoalCard from '@/components/cards/GoalCard';
 import { ALL_GOALS } from '@/data/mockGoals';
 import { useAppStore } from '@/store/useAppStore';
-import { Spacing, Colors } from '@/constants/theme';
-import { Copy } from '@/constants/copy';
+import { Spacing, Colors, Radii } from '@/constants/theme';
 
 export default function GoalSelection() {
   const { selectedGoalIds, toggleGoal } = useAppStore();
@@ -18,36 +18,43 @@ export default function GoalSelection() {
     <Screen scroll>
       <View style={styles.header}>
         <View style={styles.stepRow}>
-          <AppText variant="caption" color="primaryBlue">Step 1 of 3</AppText>
+          <AppText variant="label" color="primaryBlue" style={styles.stepLabel}>
+            STATION 01 // SELF-MASTERY PATHWAY
+          </AppText>
         </View>
-        <AppText variant="h1">{Copy.onboarding.goalTitle}</AppText>
-        <AppText variant="body" style={styles.subtitle}>{Copy.onboarding.goalSubtitle}</AppText>
+        <AppText variant="h1" style={styles.title}>What path of self-mastery are we carving?</AppText>
+        <AppText variant="body" style={styles.subtitle}>
+          Select 1 to 3 foundational dimensions of your life to reconstruct and track. ({selectedGoalIds.length}/3 selected)
+        </AppText>
+        
+        {/* Step progress tracker */}
         <View style={styles.pills}>
-          {[1, 2, 3].map((n) => (
-            <View
-              key={n}
-              style={[styles.pill, selectedGoalIds.length >= n ? styles.pillActive : null]}
-            />
-          ))}
+          <View style={[styles.pill, styles.pillActive]} />
+          <View style={styles.pill} />
+          <View style={styles.pill} />
         </View>
       </View>
 
-      {ALL_GOALS.map((goal) => (
-        <GoalCard
-          key={goal.id}
-          goal={goal}
-          selected={selectedGoalIds.includes(goal.id)}
-          onPress={() => toggleGoal(goal.id)}
-          disabled={atMax && !selectedGoalIds.includes(goal.id)}
-        />
-      ))}
+      <View style={styles.list}>
+        {ALL_GOALS.map((goal) => (
+          <GoalCard
+            key={goal.id}
+            goal={goal}
+            selected={selectedGoalIds.includes(goal.id)}
+            onPress={() => toggleGoal(goal.id)}
+            disabled={atMax && !selectedGoalIds.includes(goal.id)}
+          />
+        ))}
+      </View>
 
       <View style={styles.footer}>
         {atMax && (
-          <AppText variant="small" align="center" color="muted">Maximum 3 goals selected</AppText>
+          <AppText variant="caption" align="center" color="muted" style={styles.maxText}>
+            Maximum of 3 foundational pathways selected
+          </AppText>
         )}
         <PrimaryButton
-          title="Continue"
+          title="Proceed to Station 02"
           onPress={() => router.push('/onboarding/struggles')}
           disabled={!canContinue}
         />
@@ -57,11 +64,15 @@ export default function GoalSelection() {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingTop: Spacing.xl, marginBottom: Spacing.lg, gap: Spacing.sm },
+  header: { paddingTop: Spacing.xl, marginBottom: Spacing.base, gap: Spacing.xs },
   stepRow: { marginBottom: Spacing.xs },
-  subtitle: { marginTop: Spacing.xs },
-  pills: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
-  pill: { width: 24, height: 4, borderRadius: 2, backgroundColor: Colors.border },
+  stepLabel: { fontSize: 11, letterSpacing: 1, fontWeight: '700' },
+  title: { fontWeight: '800', letterSpacing: -0.5 },
+  subtitle: { marginTop: Spacing.xs, color: Colors.charcoalSoft, lineHeight: 20 },
+  pills: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.md },
+  pill: { width: 36, height: 5, borderRadius: Radii.sm, backgroundColor: Colors.border },
   pillActive: { backgroundColor: Colors.primaryBlue },
+  list: { marginVertical: Spacing.sm },
   footer: { marginTop: Spacing.xl, gap: Spacing.sm, paddingBottom: Spacing.xl },
+  maxText: { fontWeight: '600', color: Colors.primaryBlue },
 });

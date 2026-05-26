@@ -4,6 +4,8 @@ import { Colors, Spacing, Radii, Typography } from '@/constants/theme';
 import AppText from '@/components/ui/AppText';
 import Card from '@/components/ui/Card';
 
+import { useAppStore } from '@/store/useAppStore';
+
 interface ProgressCardProps {
   label: string;
   value: string | number;
@@ -12,8 +14,11 @@ interface ProgressCardProps {
 }
 
 export default function ProgressCard({ label, value, subtitle, accent }: ProgressCardProps) {
+  const isDarkMode = useAppStore((state) => state.isDarkMode);
+  const accentBg = isDarkMode ? 'rgba(45, 127, 249, 0.15)' : Colors.blueLight;
+
   return (
-    <Card style={[styles.card, accent ? styles.accent : null]}>
+    <Card style={[styles.card, accent ? [styles.accent, { backgroundColor: accentBg }] : null]}>
       <AppText variant="caption" style={styles.label}>
         {label}
       </AppText>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, TextStyle, StyleSheet, StyleProp } from 'react-native';
 import { Colors, Typography } from '@/constants/theme';
+import { useAppStore } from '@/store/useAppStore';
 
 type Variant =
   | 'hero'
@@ -91,12 +92,40 @@ export default function AppText({
   numberOfLines,
   align = 'left',
 }: AppTextProps) {
-  const colorStyle: TextStyle = color ? { color: Colors[color] } : {};
+  const isDarkMode = useAppStore((state) => state.isDarkMode);
+
+  // Dynamic colors for dark mode resolution
+  const getDynamicColor = (key?: ColorKey) => {
+    if (!key) return undefined;
+    if (isDarkMode) {
+      if (key === 'charcoal') return '#FFFFFF'; // White text
+      if (key === 'charcoalSoft') return '#E5E5EA'; // Light gray text
+      if (key === 'background') return '#121214';
+      if (key === 'card') return '#1C1C1E';
+      if (key === 'border') return '#2C2C2E';
+    }
+    return Colors[key];
+  };
+
+  // Determine variant style default color overrides in dark mode
+  const variantStyle = variantStyles[variant];
+  let dynamicTextColor = variantStyle.color;
+  if (isDarkMode) {
+    if (variantStyle.color === Colors.charcoal) {
+      dynamicTextColor = '#FFFFFF';
+    } else if (variantStyle.color === Colors.charcoalSoft) {
+      dynamicTextColor = '#E5E5EA';
+    }
+  }
+
+  const resolvedColor = color ? getDynamicColor(color) : dynamicTextColor;
+
+  const colorStyle: TextStyle = resolvedColor ? { color: resolvedColor } : {};
   const alignStyle: TextStyle = align !== 'left' ? { textAlign: align } : {};
 
   return (
     <Text
-      style={[variantStyles[variant], colorStyle, alignStyle, style]}
+      style={[variantStyle, style, { color: undefined }, colorStyle, alignStyle]}
       numberOfLines={numberOfLines}
     >
       {children}

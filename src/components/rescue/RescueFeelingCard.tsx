@@ -16,6 +16,8 @@ const FEELING_CONFIG: Record<RescueFeeling, { label: string; emoji: string }> = 
   'feeling-lost': { label: 'Feeling Lost', emoji: '🧭' },
 };
 
+import { useAppStore } from '@/store/useAppStore';
+
 interface RescueFeelingCardProps {
   feeling: RescueFeeling;
   onPress: () => void;
@@ -23,8 +25,17 @@ interface RescueFeelingCardProps {
 
 export default function RescueFeelingCard({ feeling, onPress }: RescueFeelingCardProps) {
   const config = FEELING_CONFIG[feeling];
+  const isDarkMode = useAppStore((state) => state.isDarkMode);
+
+  const cardBg = isDarkMode ? '#1C1C1E' : Colors.card;
+  const cardBorder = isDarkMode ? '#2C2C2E' : Colors.border;
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       <AppText style={styles.emoji}>{config.emoji}</AppText>
       <AppText variant="bodyMedium" style={styles.label}>
         {config.label}

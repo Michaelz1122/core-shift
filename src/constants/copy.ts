@@ -76,7 +76,7 @@ export const Copy = {
     doItNow: "I'll do it now",
     writeNote: 'Write a note',
     backToToday: 'Back to Today',
-    arabicSupport: 'مش لازم تكون مثالي. المهم ترجع تكمل.',
+    englishSupport: 'You do not have to be perfect. The only thing that matters is that you come back.',
   },
 
   checkin: {
