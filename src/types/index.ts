@@ -1,49 +1,40 @@
-export type GoalId =
-  | 'health'
-  | 'fitness'
-  | 'productivity'
-  | 'career'
-  | 'learning'
-  | 'reading'
-  | 'digital-discipline'
-  | 'social-life'
-  | 'emotional-balance'
-  | 'spiritual-growth'
-  | 'custom';
+// ── Language ──────────────────────────────────────────────────────────────────
+export type Language = 'ar' | 'en';
 
-export type StruggleId =
-  | 'laziness'
-  | 'distraction'
-  | 'low-motivation'
-  | 'overthinking'
-  | 'inconsistency'
-  | 'harmful-urges'
-  | 'low-energy'
-  | 'feeling-lost'
-  | 'isolation'
-  | 'procrastination';
+// ── Challenge (replaces Goal + Struggle) ─────────────────────────────────────
+export type ChallengeId =
+  | 'procrastination'
+  | 'porn-addiction'
+  | 'social-media-addiction'
+  | 'lack-of-discipline'
+  | 'lack-of-focus'
+  | 'poor-sleep'
+  | 'anxiety'
+  | 'other';
 
-export interface Goal {
-  id: GoalId;
-  label: string;
-  emoji: string;
-}
+// ── Vision ────────────────────────────────────────────────────────────────────
+export type VisionId =
+  | 'more-disciplined'
+  | 'more-focused'
+  | 'quit-addiction'
+  | 'study-consistently'
+  | 'build-business'
+  | 'better-mental-health'
+  | 'better-sleep'
+  | 'more-productive';
 
-export interface Struggle {
-  id: StruggleId;
-  label: string;
-  emoji: string;
-}
-
-export interface Habit {
+// ── Action (replaces Habit) ───────────────────────────────────────────────────
+export interface Action {
   id: string;
   title: string;
-  goalId: GoalId;
+  emoji: string;
+  challengeId: ChallengeId;
   frequency: 'daily' | 'weekly';
-  reminderTime?: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
   isCustom?: boolean;
 }
 
+// ── Mood / Check-in ───────────────────────────────────────────────────────────
 export type MoodType = 'calm' | 'tired' | 'focused' | 'stressed' | 'low' | 'motivated';
 
 export interface CheckIn {
@@ -54,13 +45,15 @@ export interface CheckIn {
   note?: string;
 }
 
+// ── Notes ─────────────────────────────────────────────────────────────────────
 export interface Note {
   id: string;
-  date: string;       // YYYY-MM-DD
+  date: string;      // YYYY-MM-DD
   content: string;
-  createdAt: string;  // ISO timestamp
+  createdAt: string; // ISO timestamp
 }
 
+// ── Rescue / Shift Now ────────────────────────────────────────────────────────
 export type RescueFeeling =
   | 'laziness'
   | 'distraction'
@@ -72,25 +65,14 @@ export type RescueFeeling =
   | 'loneliness'
   | 'feeling-lost';
 
-/** Maps a StruggleId to the closest RescueFeeling for prioritisation */
-export const STRUGGLE_TO_RESCUE: Partial<Record<StruggleId, RescueFeeling>> = {
-  laziness: 'laziness',
-  distraction: 'distraction',
-  'low-motivation': 'low-motivation',
-  overthinking: 'anxiety',
-  inconsistency: 'relapse',
-  'harmful-urges': 'harmful-urge',
-  'feeling-lost': 'feeling-lost',
-  isolation: 'loneliness',
-  procrastination: 'laziness',
+/** Maps a ChallengeId to the closest RescueFeeling for Shift Now prioritisation */
+export const CHALLENGE_TO_RESCUE: Partial<Record<ChallengeId, RescueFeeling>> = {
+  procrastination:           'laziness',
+  'porn-addiction':          'harmful-urge',
+  'social-media-addiction':  'distraction',
+  'lack-of-discipline':      'relapse',
+  'lack-of-focus':           'distraction',
+  'poor-sleep':              'low-motivation',
+  anxiety:                   'anxiety',
+  other:                     'feeling-lost',
 };
-
-export interface WeeklyReview {
-  weekStart: string;
-  completedHabits: number;
-  missedHabits: number;
-  completionRate: number;
-  wentWell?: string;
-  wasDifficult?: string;
-  improveNext?: string;
-}

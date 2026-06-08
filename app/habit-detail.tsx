@@ -9,79 +9,92 @@ import AppText from '@/components/ui/AppText';
 import Card from '@/components/ui/Card';
 import { useAppStore } from '@/store/useAppStore';
 import { Colors, Spacing, Radii, Gradients, Shadows } from '@/constants/theme';
+import { useTranslation } from '@/i18n';
+import { ALL_CHALLENGES } from '@/data/challenges';
 
 export default function HabitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t, language, isRTL } = useTranslation();
   const {
-    availableHabits,
-    completedHabitIdsToday,
-    toggleHabitCompletion,
-    toggleHabit,
+    actions,
+    completedActionIdsToday,
+    toggleActionCompletion,
+    toggleAction,
     xp,
     level,
     isDarkMode,
   } = useAppStore();
 
-  // Find the real habit in the system
-  const habit = availableHabits.find((h) => h.id === id);
+  // Find the action in the store
+  const action = actions.find((a) => a.id === id);
 
-  if (!habit) {
+  if (!action) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.headerBar}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color={Colors.charcoal} />
           </TouchableOpacity>
-          <AppText variant="h3">Habit Missing</AppText>
+          <AppText variant="h3">{isRTL ? 'الإجراء مش موجود' : 'Action Missing'}</AppText>
           <View style={styles.backBtn} />
         </View>
         <View style={styles.emptyContainer}>
           <Ionicons name="warning-outline" size={48} color={Colors.muted} />
-          <AppText variant="body" color="muted">This habit could not be found in your active blueprint.</AppText>
+          <AppText variant="body" color="muted">
+            {isRTL
+              ? 'الإجراء ده مش موجود في خطتك النشطة.'
+              : 'This action could not be found in your active plan.'}
+          </AppText>
           <TouchableOpacity style={styles.goHomeBtn} onPress={() => router.replace('/(tabs)/today')}>
-            <AppText variant="bodyMedium" color="white">Return to Dashboard</AppText>
+            <AppText variant="bodyMedium" color="white">
+              {isRTL ? 'ارجع للرئيسية' : 'Return to Dashboard'}
+            </AppText>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
-  const isCompletedToday = completedHabitIdsToday.includes(habit.id);
+  const isCompletedToday = completedActionIdsToday.includes(action.id);
 
-  // Toggle completion from details screen (real-time XP update!)
+  // Find the challenge label for this action
+  const challenge = ALL_CHALLENGES.find((c) => c.id === action.challengeId);
+  const challengeLabel = challenge ? challenge.label[language] : action.challengeId.replace(/-/g, ' ');
+
   const handleToggleCompletion = () => {
     Haptics.notificationAsync(
       isCompletedToday
         ? Haptics.NotificationFeedbackType.Warning
         : Haptics.NotificationFeedbackType.Success
     );
-    toggleHabitCompletion(habit.id);
+    toggleActionCompletion(action.id);
   };
 
-  // Archive / Delete habit from active blueprint (100% end-to-end!)
-  const handleArchiveHabit = () => {
+  const handleArchiveAction = () => {
     Alert.alert(
-      'Archive Action Loop',
-      `Are you sure you want to remove "${habit.title}" from your active self-mastery blueprint?`,
+      isRTL ? 'إزالة الإجراء' : 'Remove Action',
+      isRTL
+        ? `متأكد إنك عايز تشيل "${action.title}" من خطتك النشطة؟`
+        : `Are you sure you want to remove "${action.title}" from your active plan?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' },
         {
-          text: 'Archive',
+          text: isRTL ? 'إزالة' : 'Remove',
           style: 'destructive',
           onPress: () => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            toggleHabit(habit.id); // Remove habit
-            router.replace('/(tabs)/today'); // Navigate back
+            toggleAction(action.id);
+            router.replace('/(tabs)/today');
           },
         },
       ]
     );
   };
 
-  // Generate deterministic premium completion look for past week
-  // Sunday to Saturday dots showing if it's completed today or simulated consistently
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const todayIndex = (new Date().getDay() + 6) % 7; // Map Sunday=0 to Index 6, Monday=1 to Index 0
+  const daysAr = ['الإث', 'الث', 'الأر', 'الخم', 'الجم', 'السب', 'الأح'];
+  const dayLabels = isRTL ? daysAr : days;
+  const todayIndex = (new Date().getDay() + 6) % 7;
 
   const themeBg = isDarkMode ? '#121214' : Colors.background;
   const cardBg = isDarkMode ? '#1C1C1E' : Colors.white;
@@ -94,8 +107,10 @@ export default function HabitDetailScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={isDarkMode ? '#FFFFFF' : Colors.charcoal} />
         </TouchableOpacity>
-        <AppText variant="h3" style={styles.headerTitle}>Action Loop Details</AppText>
-        <TouchableOpacity onPress={handleArchiveHabit} style={styles.archiveTopBtn}>
+        <AppText variant="h3" style={styles.headerTitle}>
+          {isRTL ? 'تفاصيل الإجراء' : 'Action Details'}
+        </AppText>
+        <TouchableOpacity onPress={handleArchiveAction} style={styles.archiveTopBtn}>
           <Ionicons name="archive-outline" size={20} color={Colors.red} />
         </TouchableOpacity>
       </View>
@@ -108,21 +123,26 @@ export default function HabitDetailScreen() {
         {/* Title and Category */}
         <View style={styles.titleBlock}>
           <View style={styles.tagRow}>
-            <View style={[styles.goalTag, { backgroundColor: isDarkMode ? 'rgba(45, 127, 249, 0.15)' : Colors.blueLight }]}>
-              <AppText variant="caption" style={styles.goalTagText}>
-                {habit.goalId.replace(/-/g, ' ').toUpperCase()}
+            <View style={[styles.challengeTag, { backgroundColor: isDarkMode ? 'rgba(45, 127, 249, 0.15)' : Colors.blueLight }]}>
+              <AppText variant="caption" style={styles.challengeTagText}>
+                {challengeLabel.toUpperCase()}
               </AppText>
             </View>
             <View style={[styles.freqTag, { backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' }]}>
               <AppText variant="caption" style={styles.freqTagText}>
-                {habit.frequency.toUpperCase()}
+                {(isRTL
+                  ? action.frequency === 'daily' ? 'يومي' : 'أسبوعي'
+                  : action.frequency.toUpperCase()
+                )}
               </AppText>
             </View>
           </View>
-          <AppText variant="hero" style={styles.habitTitle}>{habit.title}</AppText>
+          <AppText variant="hero" style={[styles.actionTitle, isRTL && styles.textRight]}>
+            {action.title}
+          </AppText>
         </View>
 
-        {/* Completion Interactive Controller (Premium UI Card) */}
+        {/* Completion Interactive Card */}
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.interactiveCard}
@@ -145,19 +165,23 @@ export default function HabitDetailScreen() {
               <View style={styles.interactiveText}>
                 <AppText
                   variant="bodyMedium"
-                  style={[styles.interactiveTitle, isCompletedToday && styles.whiteText]}
+                  style={[styles.interactiveTitle, isCompletedToday && styles.whiteText, isRTL && styles.textRight]}
                 >
-                  {isCompletedToday ? 'Loop Completed Today' : 'Initialize Action Loop'}
+                  {isCompletedToday
+                    ? (isRTL ? 'اتعمل النهارده ✓' : 'Completed Today')
+                    : (isRTL ? 'اضغط لتسجيل الإنجاز' : 'Tap to mark as done')}
                 </AppText>
                 <AppText
                   variant="caption"
-                  style={[styles.interactiveDesc, isCompletedToday && styles.whiteDescText]}
+                  style={[styles.interactiveDesc, isCompletedToday && styles.whiteDescText, isRTL && styles.textRight]}
                 >
-                  {isCompletedToday ? 'XP awarded. Tap to revert if desired.' : 'Tap to mark as done and claim +10 XP.'}
+                  {isCompletedToday
+                    ? (isRTL ? '.تم اضافة الـ XP. اضغط للتراجع لو عايز' : 'XP awarded. Tap to revert if desired.')
+                    : (isRTL ? '.اضغط هنا عشان تاخد +١٠ XP' : 'Tap to claim +10 XP.')}
                 </AppText>
               </View>
               <Ionicons
-                name={isCompletedToday ? 'sparkles' : 'arrow-forward'}
+                name={isCompletedToday ? 'sparkles' : (isRTL ? 'arrow-back' : 'arrow-forward')}
                 size={20}
                 color={isCompletedToday ? Colors.white : Colors.muted}
               />
@@ -165,25 +189,27 @@ export default function HabitDetailScreen() {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Active Stats Card */}
+        {/* Stats */}
         <View style={styles.statRow}>
           <Card style={styles.statCard}>
-            <AppText variant="caption" color="muted">Commitment Reward</AppText>
+            <AppText variant="caption" color="muted">{isRTL ? 'مكافأة' : 'Reward'}</AppText>
             <AppText variant="h2" color="primaryBlue">+10 XP</AppText>
           </Card>
           <Card style={styles.statCard}>
-            <AppText variant="caption" color="muted">Personal Level</AppText>
+            <AppText variant="caption" color="muted">{isRTL ? 'مستواك' : 'Your Level'}</AppText>
             <AppText variant="h2">LV {level}</AppText>
           </Card>
         </View>
 
-        {/* Dynamic Weekly Calendar Grid */}
+        {/* Weekly Tracker */}
         <Card style={styles.weekCard}>
-          <AppText variant="bodyMedium" style={styles.weekTitle}>Action Tracker (This Week)</AppText>
+          <AppText variant="bodyMedium" style={[styles.weekTitle, isRTL && styles.textRight]}>
+            {isRTL ? 'متابعة الأسبوع' : 'This Week'}
+          </AppText>
           <View style={styles.weekDots}>
-            {days.map((day, idx) => {
+            {dayLabels.map((day, idx) => {
               const isToday = idx === todayIndex;
-              const isDone = (isToday && isCompletedToday) || (!isToday && idx < todayIndex && idx % 3 !== 0); // Deterministic historic look
+              const isDone = (isToday && isCompletedToday) || (!isToday && idx < todayIndex && idx % 3 !== 0);
               return (
                 <View key={day} style={styles.dayCol}>
                   <View
@@ -207,14 +233,22 @@ export default function HabitDetailScreen() {
           </View>
         </Card>
 
-        {/* Action Management Center */}
-        <AppText variant="label" color="primaryBlue" style={styles.sectionLabel}>LOOP MANAGEMENT</AppText>
+        {/* Management */}
+        <AppText variant="label" color="primaryBlue" style={styles.sectionLabel}>
+          {isRTL ? 'إدارة الإجراء' : 'MANAGE ACTION'}
+        </AppText>
         <Card style={styles.actionsCard}>
-          <TouchableOpacity style={[styles.actionRow, { backgroundColor: cardBg }]} onPress={handleArchiveHabit}>
+          <TouchableOpacity style={[styles.actionRow, { backgroundColor: cardBg }]} onPress={handleArchiveAction}>
             <Ionicons name="archive" size={20} color={Colors.red} />
             <View style={styles.actionTextContainer}>
-              <AppText variant="bodyMedium" style={styles.archiveBtnText}>Archive Action Loop</AppText>
-              <AppText variant="caption" color="muted">Remove this habit from your daily dashboard.</AppText>
+              <AppText variant="bodyMedium" style={[styles.archiveBtnText, isRTL && styles.textRight]}>
+                {isRTL ? 'إزالة الإجراء' : 'Remove Action'}
+              </AppText>
+              <AppText variant="caption" color="muted" style={isRTL ? styles.textRight : undefined}>
+                {isRTL
+                  ? '.شيل الإجراء ده من خطتك اليومية'
+                  : 'Remove this action from your daily plan.'}
+              </AppText>
             </View>
           </TouchableOpacity>
         </Card>
@@ -237,6 +271,7 @@ const styles = StyleSheet.create({
   backBtn: { padding: Spacing.xs },
   archiveTopBtn: { padding: Spacing.xs },
   headerTitle: { fontWeight: '800' },
+  textRight: { textAlign: 'right', writingDirection: 'rtl' },
   scrollContent: {
     paddingHorizontal: Spacing.base,
     paddingTop: Spacing.lg,
@@ -251,13 +286,13 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     marginBottom: Spacing.xs,
   },
-  goalTag: {
+  challengeTag: {
     backgroundColor: Colors.blueLight,
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: Radii.sm,
   },
-  goalTagText: {
+  challengeTagText: {
     color: Colors.primaryBlue,
     fontWeight: '700',
     fontSize: 9,
@@ -273,7 +308,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 9,
   },
-  habitTitle: {
+  actionTitle: {
     fontWeight: '800',
     color: Colors.charcoal,
     fontSize: 26,
@@ -286,9 +321,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.base,
     ...Shadows.md,
   },
-  interactiveGradient: {
-    padding: Spacing.md,
-  },
+  interactiveGradient: { padding: Spacing.md },
   interactiveRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -302,27 +335,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statusIconBoxActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  interactiveText: {
-    flex: 1,
-    gap: 2,
-  },
-  interactiveTitle: {
-    fontWeight: '700',
-    color: Colors.charcoal,
-  },
-  interactiveDesc: {
-    color: Colors.charcoalSoft,
-    lineHeight: 14,
-  },
-  whiteText: {
-    color: Colors.white,
-  },
-  whiteDescText: {
-    color: 'rgba(255, 255, 255, 0.85)',
-  },
+  statusIconBoxActive: { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
+  interactiveText: { flex: 1, gap: 2 },
+  interactiveTitle: { fontWeight: '700', color: Colors.charcoal },
+  interactiveDesc: { color: Colors.charcoalSoft, lineHeight: 14 },
+  whiteText: { color: Colors.white },
+  whiteDescText: { color: 'rgba(255, 255, 255, 0.85)' },
   statRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
@@ -340,19 +358,13 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     ...Shadows.sm,
   },
-  weekTitle: {
-    fontWeight: '700',
-    color: Colors.charcoal,
-  },
+  weekTitle: { fontWeight: '700', color: Colors.charcoal },
   weekDots: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: Spacing.xs,
   },
-  dayCol: {
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
+  dayCol: { alignItems: 'center', gap: Spacing.xs },
   dot: {
     width: 28,
     height: 28,
@@ -361,22 +373,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  dotDone: {
-    backgroundColor: Colors.success,
-  },
   todayDotBorder: {
     borderWidth: 2,
     borderColor: Colors.primaryBlue,
   },
-  dayLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: Colors.muted,
-  },
-  todayLabelActive: {
-    fontWeight: '700',
-    color: Colors.primaryBlue,
-  },
+  dayLabel: { fontSize: 10, fontWeight: '500', color: Colors.muted },
+  todayLabelActive: { fontWeight: '700', color: Colors.primaryBlue },
   sectionLabel: {
     fontSize: 10,
     fontWeight: '700',
@@ -397,14 +399,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
     backgroundColor: Colors.white,
   },
-  actionTextContainer: {
-    flex: 1,
-    gap: 2,
-  },
-  archiveBtnText: {
-    fontWeight: '700',
-    color: Colors.red,
-  },
+  actionTextContainer: { flex: 1, gap: 2 },
+  archiveBtnText: { fontWeight: '700', color: Colors.red },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',

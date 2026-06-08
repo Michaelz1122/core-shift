@@ -30,10 +30,11 @@ export default function RootLayout() {
         <Stack.Screen name="auth/login" />
         <Stack.Screen name="auth/signup" />
         <Stack.Screen name="onboarding/index" />
-        <Stack.Screen name="onboarding/goals" />
-        <Stack.Screen name="onboarding/struggles" />
-        <Stack.Screen name="onboarding/habits" />
-        <Stack.Screen name="onboarding/confirm" />
+        <Stack.Screen name="onboarding/language" />
+        <Stack.Screen name="onboarding/challenge" />
+        <Stack.Screen name="onboarding/vision" />
+        <Stack.Screen name="onboarding/quiz" />
+        <Stack.Screen name="onboarding/plan" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
           name="checkin"

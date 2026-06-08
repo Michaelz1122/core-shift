@@ -10,21 +10,27 @@ import HabitToggle from '@/components/habits/HabitToggle';
 import { ProgressBar } from '@/components/progress/ProgressCard';
 import { useAppStore } from '@/store/useAppStore';
 import { Colors, Spacing, Radii, Gradients, Shadows } from '@/constants/theme';
-import { Copy } from '@/constants/copy';
+import { useTranslation } from '@/i18n';
 
-function getPersonalisedGreeting(name: string): string {
+function getGreeting(name: string, isAR: boolean): string {
   const hour = new Date().getHours();
-  const base = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  let base: string;
+  if (isAR) {
+    base = hour < 12 ? 'صباح الخير' : hour < 17 ? 'مساء الخير' : 'مساء النور';
+    return name ? `${base}، ${name}` : base;
+  }
+  base = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   return name ? `${base}, ${name}.` : `${base}.`;
 }
 
 export default function TodayScreen() {
+  const { t, language, isRTL } = useTranslation();
   const {
-    toggleHabitCompletion,
-    isHabitCompleted,
+    toggleActionCompletion,
+    isActionCompleted,
     todayCheckIn,
-    selectedHabitIds,
-    availableHabits,
+    activeActionIds,
+    actions,
     userName,
     xp,
     level,
@@ -35,13 +41,13 @@ export default function TodayScreen() {
   const xpPercent = xpInCurrentLevel / 100;
   const xpToNextLevel = 100 - xpInCurrentLevel;
 
-  // Only show habits the user selected during onboarding
-  const habits = availableHabits.filter((h) => selectedHabitIds.includes(h.id));
-  const completedCount = habits.filter((h) => isHabitCompleted(h.id)).length;
-  const total = habits.length;
+  const activeActions = actions.filter((a) => activeActionIds.includes(a.id));
+  const completedCount = activeActions.filter((a) => isActionCompleted(a.id)).length;
+  const total = activeActions.length;
   const hasCheckIn = todayCheckIn !== null;
 
   const themeBg = isDarkMode ? '#121214' : Colors.background;
+  const cardTextColor = isDarkMode ? '#FFFFFF' : Colors.charcoal;
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: themeBg }]} edges={['top']}>
@@ -50,18 +56,22 @@ export default function TodayScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Gamified Level & Greeting Header */}
+        {/* ── Gamified Header ─────────────────────────────────────────── */}
         <View style={styles.gamifiedHeader}>
           <View style={styles.headerTopRow}>
             <View style={styles.greetingCol}>
-              <AppText variant="h2" style={styles.greetText}>
-                {getPersonalisedGreeting(userName)}
+              <AppText
+                variant="h2"
+                style={[styles.greetText, isRTL && styles.textRight, { color: cardTextColor }]}
+              >
+                {getGreeting(userName, isRTL)}
               </AppText>
-              <View style={styles.badgeRow}>
-                <AppText variant="small" style={styles.levelBadgeText}>
-                  Level {level} · Mind Shifter
-                </AppText>
-              </View>
+              <AppText
+                variant="small"
+                style={[styles.levelBadgeText, isRTL && styles.textRight]}
+              >
+                {language === 'ar' ? `المستوى ${level} · CoreShift` : `Level ${level} · CoreShift`}
+              </AppText>
             </View>
 
             {/* Level Badge Circle */}
@@ -86,10 +96,10 @@ export default function TodayScreen() {
           <View style={styles.xpBarContainer}>
             <View style={styles.xpBarLabels}>
               <AppText variant="caption" style={styles.xpLabel}>
-                Self-Mastery XP
+                {language === 'ar' ? 'نقاط الخبرة' : 'Self-Mastery XP'}
               </AppText>
               <AppText variant="caption" style={styles.xpLabel}>
-                {xpInCurrentLevel}/100 XP ({xpToNextLevel} to LVL {level + 1})
+                {xpInCurrentLevel}/100 XP
               </AppText>
             </View>
             <View style={styles.xpTrack}>
@@ -103,7 +113,7 @@ export default function TodayScreen() {
           </View>
         </View>
 
-        {/* Daily Check-in Card */}
+        {/* ── Daily Check-in ──────────────────────────────────────────── */}
         <TouchableOpacity
           style={styles.checkinCard}
           onPress={() => !hasCheckIn && router.push('/checkin')}
@@ -111,12 +121,12 @@ export default function TodayScreen() {
         >
           {hasCheckIn ? (
             <View style={styles.checkinDone}>
-              <Ionicons name="checkmark-circle" size={22} color={Colors.primaryBlue} />
+              <Ionicons name="checkmark-circle" size={22} color={Colors.white} />
               <View style={styles.checkinDoneText}>
                 <AppText variant="h3" style={styles.checkinDoneTitle}>
-                  {Copy.today.checkInDone}
+                  {t.todayCheckInDone}
                 </AppText>
-                <AppText variant="small">
+                <AppText variant="small" style={styles.checkinDoneSub}>
                   Mood · {todayCheckIn!.mood} · Energy {todayCheckIn!.energy}/5
                 </AppText>
               </View>
@@ -125,15 +135,15 @@ export default function TodayScreen() {
             <>
               <View style={styles.checkinTop}>
                 <AppText variant="h3" style={styles.checkinTitle}>
-                  {Copy.today.checkInTitle}
+                  {t.todayCheckInTitle}
                 </AppText>
                 <AppText variant="small" style={styles.checkinSub}>
-                  {Copy.today.checkInSub}
+                  {t.todayCheckInSub}
                 </AppText>
               </View>
               <View style={styles.checkinBtn}>
                 <AppText variant="small" style={styles.checkinBtnText}>
-                  {Copy.today.checkInButton}
+                  {t.todayCheckInButton}
                 </AppText>
                 <Ionicons name="arrow-forward" size={14} color={Colors.primaryBlue} />
               </View>
@@ -141,10 +151,12 @@ export default function TodayScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Progress Card */}
+        {/* ── Progress Card ───────────────────────────────────────────── */}
         <Card style={styles.progressCard}>
           <View style={styles.progressTop}>
-            <AppText variant="bodyMedium">{Copy.today.progressTitle}</AppText>
+            <AppText variant="bodyMedium" style={isRTL ? styles.textRight : undefined}>
+              {t.todayProgressTitle}
+            </AppText>
             <AppText variant="bodyMedium" color="primaryBlue">
               {completedCount}/{total}
             </AppText>
@@ -152,48 +164,48 @@ export default function TodayScreen() {
           <View style={styles.progressBar}>
             <ProgressBar value={completedCount} total={total} />
           </View>
-          <AppText variant="small">
+          <AppText variant="small" style={isRTL ? styles.textRight : undefined}>
             {total === 0
-              ? 'Your habits will appear here after onboarding.'
+              ? t.todayNoActions
               : completedCount === total
-              ? 'All done for today! 🎉'
-              : completedCount === 0
-              ? 'Start your first habit for today.'
-              : `${total - completedCount} habit${total - completedCount !== 1 ? 's' : ''} remaining.`}
+              ? t.todayAllDone
+              : `${total - completedCount} ${t.todayActionsRemaining}`}
           </AppText>
         </Card>
 
-        {/* Habits List */}
+        {/* ── Actions List ────────────────────────────────────────────── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <AppText variant="h3">{Copy.today.habitsTitle}</AppText>
+            <AppText variant="h3" style={isRTL ? styles.textRight : undefined}>
+              {t.todayActionsTitle}
+            </AppText>
           </View>
 
-          {habits.length === 0 ? (
+          {activeActions.length === 0 ? (
             <Card style={styles.emptyCard}>
               <AppText variant="body" align="center" color="muted">
-                No habits yet. Complete onboarding to add your first habits.
+                {t.todayNoActions}
               </AppText>
             </Card>
           ) : (
-            <Card style={styles.habitCard}>
-              {habits.map((habit, idx) => (
+            <Card style={styles.actionCard}>
+              {activeActions.map((action, idx) => (
                 <View
-                  key={habit.id}
-                  style={[idx < habits.length - 1 && styles.habitDivider]}
+                  key={action.id}
+                  style={[idx < activeActions.length - 1 && styles.actionDivider]}
                 >
                   <HabitToggle
-                    title={habit.title}
-                    completed={isHabitCompleted(habit.id)}
+                    title={action.title}
+                    completed={isActionCompleted(action.id)}
                     onToggle={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      toggleHabitCompletion(habit.id);
+                      toggleActionCompletion(action.id);
                     }}
                     onPressDetails={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       router.push({
                         pathname: '/habit-detail',
-                        params: { id: habit.id },
+                        params: { id: action.id },
                       });
                     }}
                   />
@@ -203,29 +215,27 @@ export default function TodayScreen() {
           )}
         </View>
 
-        {/* Rescue Mode Card */}
+        {/* ── Shift Now CTA ───────────────────────────────────────────── */}
         <TouchableOpacity
           style={[
-            styles.rescueCard,
+            styles.shiftNowCard,
             {
               backgroundColor: isDarkMode ? 'rgba(45, 127, 249, 0.15)' : Colors.blueLight,
               borderColor: isDarkMode ? '#2C2C2E' : Colors.primaryBlue + '33',
-            }
+            },
           ]}
           onPress={() => router.push('/(tabs)/rescue')}
           activeOpacity={0.85}
         >
-          <View style={styles.rescueContent}>
-            <AppText variant="bodyMedium" style={styles.rescueTitle}>
-              {Copy.today.rescueTitle}
+          <View style={styles.shiftNowContent}>
+            <AppText variant="bodyMedium" style={[styles.shiftNowTitle, isRTL && styles.textRight]}>
+              {t.todayShiftNowTitle}
             </AppText>
-            <AppText variant="small" style={styles.rescueSub}>
-              {Copy.today.rescueSub}
+            <AppText variant="small" style={[styles.shiftNowSub, isRTL && styles.textRight]}>
+              {t.todayShiftNowSub}
             </AppText>
           </View>
-          <View style={styles.rescueArrow}>
-            <Ionicons name="shield-checkmark-outline" size={20} color={Colors.primaryBlue} />
-          </View>
+          <Ionicons name="shield-checkmark-outline" size={22} color={Colors.primaryBlue} />
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -233,34 +243,17 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: Spacing.base, paddingBottom: Spacing.xxxl },
+  textRight: { textAlign: 'right', writingDirection: 'rtl' },
 
-  gamifiedHeader: {
-    paddingTop: Spacing.xl,
-    marginBottom: Spacing.lg,
-    gap: Spacing.md,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  greetingCol: {
-    flex: 1,
-    paddingRight: Spacing.sm,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    marginTop: Spacing.xs,
-  },
-  levelBadgeText: {
-    color: Colors.charcoalSoft,
-    fontWeight: '500',
-  },
+  gamifiedHeader: { paddingTop: Spacing.xl, marginBottom: Spacing.lg, gap: Spacing.md },
+  headerTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  greetingCol: { flex: 1, paddingRight: Spacing.sm, gap: Spacing.xs },
+  greetText: { letterSpacing: -0.3 },
+  levelBadgeText: { color: Colors.charcoalSoft, fontWeight: '500' },
+
   levelCircleGradient: {
     width: 54,
     height: 54,
@@ -278,41 +271,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  levelCircleNumber: {
-    color: Colors.primaryBlue,
-    fontWeight: '700',
-    fontSize: 18,
-    lineHeight: 20,
-  },
-  levelCircleLabel: {
-    color: Colors.muted,
-    fontSize: 8,
-    fontWeight: '700',
-    marginTop: -2,
-  },
-  xpBarContainer: {
-    gap: Spacing.xs,
-  },
-  xpBarLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  xpLabel: {
-    color: Colors.muted,
-    fontWeight: '500',
-  },
-  xpTrack: {
-    height: 8,
-    backgroundColor: Colors.border,
-    borderRadius: Radii.full,
-    overflow: 'hidden',
-  },
-  xpFill: {
-    height: '100%',
-    borderRadius: Radii.full,
-  },
-  greetText: { letterSpacing: -0.3 },
+  levelCircleNumber: { color: Colors.primaryBlue, fontWeight: '700', fontSize: 18, lineHeight: 20 },
+  levelCircleLabel: { color: Colors.muted, fontSize: 8, fontWeight: '700', marginTop: -2 },
+
+  xpBarContainer: { gap: Spacing.xs },
+  xpBarLabels: { flexDirection: 'row', justifyContent: 'space-between' },
+  xpLabel: { color: Colors.muted, fontWeight: '500' },
+  xpTrack: { height: 8, backgroundColor: Colors.border, borderRadius: Radii.full, overflow: 'hidden' },
+  xpFill: { height: '100%', borderRadius: Radii.full },
 
   checkinCard: {
     backgroundColor: Colors.primaryBlue,
@@ -337,34 +303,27 @@ const styles = StyleSheet.create({
   checkinDone: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   checkinDoneText: { gap: 2 },
   checkinDoneTitle: { color: Colors.white },
+  checkinDoneSub: { color: 'rgba(255,255,255,0.75)' },
 
   progressCard: { marginBottom: Spacing.xl, gap: Spacing.sm },
   progressTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   progressBar: { marginVertical: Spacing.xs },
 
   section: { marginBottom: Spacing.xl },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
-  habitCard: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.base },
-  habitDivider: { borderBottomWidth: 1, borderBottomColor: Colors.border },
+  sectionHeader: { marginBottom: Spacing.sm },
+  actionCard: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.base },
+  actionDivider: { borderBottomWidth: 1, borderBottomColor: Colors.border },
   emptyCard: { paddingVertical: Spacing.xxl },
 
-  rescueCard: {
+  shiftNowCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.blueLight,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.primaryBlue + '33',
     padding: Spacing.base,
     gap: Spacing.md,
   },
-  rescueContent: { flex: 1, gap: Spacing.xs },
-  rescueTitle: { color: Colors.charcoal },
-  rescueSub: { color: Colors.charcoalSoft },
-  rescueArrow: {},
+  shiftNowContent: { flex: 1, gap: Spacing.xs },
+  shiftNowTitle: { color: Colors.charcoal, fontWeight: '700' },
+  shiftNowSub: { color: Colors.charcoalSoft },
 });

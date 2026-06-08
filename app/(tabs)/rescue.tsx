@@ -5,8 +5,8 @@ import AppText from '@/components/ui/AppText';
 import RescueFeelingCard from '@/components/rescue/RescueFeelingCard';
 import { useAppStore } from '@/store/useAppStore';
 import { Colors, Spacing } from '@/constants/theme';
-import { Copy } from '@/constants/copy';
-import { RescueFeeling, STRUGGLE_TO_RESCUE } from '@/types';
+import { useTranslation } from '@/i18n';
+import { CHALLENGE_TO_RESCUE, RescueFeeling } from '@/types';
 
 const ALL_FEELINGS: RescueFeeling[] = [
   'laziness',
@@ -21,11 +21,12 @@ const ALL_FEELINGS: RescueFeeling[] = [
 ];
 
 export default function RescueScreen() {
-  const { selectedStruggleIds, isDarkMode } = useAppStore();
+  const { t, isRTL } = useTranslation();
+  const { selectedChallengeIds, isDarkMode } = useAppStore();
 
-  // Build a prioritised list: struggle-mapped feelings first, then the rest
-  const prioritised = selectedStruggleIds
-    .map((id) => STRUGGLE_TO_RESCUE[id])
+  // Prioritise feelings mapped from user's selected challenges
+  const prioritised = selectedChallengeIds
+    .map((id) => CHALLENGE_TO_RESCUE[id])
     .filter((f): f is RescueFeeling => f !== undefined);
 
   const prioritisedUnique = [...new Set(prioritised)];
@@ -46,17 +47,41 @@ export default function RescueScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <AppText variant="label" color="primaryBlue" style={styles.label}>
-            {Copy.rescue.header}
+          <AppText variant="label" color="primaryBlue" style={isRTL ? styles.textRight : undefined}>
+            {t.shiftNowHeader}
           </AppText>
-          <AppText variant="h1" style={styles.title}>
-            {Copy.rescue.title}
+          <AppText variant="h1" style={[styles.title, isRTL && styles.textRight]}>
+            {t.shiftNowTitle}
           </AppText>
-          <AppText variant="body">{Copy.rescue.subtitle}</AppText>
+          <AppText variant="body" style={isRTL ? styles.textRight : undefined}>
+            {t.shiftNowSubtitle}
+          </AppText>
         </View>
 
-        <View style={styles.feelings}>
-          {orderedFeelings.map((feeling) => (
+        {/* Prioritised feelings based on user's challenges */}
+        {prioritisedUnique.length > 0 && (
+          <View style={styles.section}>
+            <AppText variant="caption" style={[styles.sectionLabel, isRTL && styles.textRight]}>
+              {isRTL ? '⚡ بناءً على تحدياتك' : '⚡ Based on your challenges'}
+            </AppText>
+            {prioritisedUnique.map((feeling) => (
+              <RescueFeelingCard
+                key={feeling}
+                feeling={feeling}
+                onPress={() => handleFeeling(feeling)}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* Rest of feelings */}
+        <View style={styles.section}>
+          {prioritisedUnique.length > 0 && (
+            <AppText variant="caption" style={[styles.sectionLabel, isRTL && styles.textRight]}>
+              {isRTL ? 'المزيد' : 'More states'}
+            </AppText>
+          )}
+          {rest.map((feeling) => (
             <RescueFeelingCard
               key={feeling}
               feeling={feeling}
@@ -64,23 +89,23 @@ export default function RescueScreen() {
             />
           ))}
         </View>
-
-        <View style={styles.footer}>
-          <AppText variant="caption" color="muted" align="center">
-            Rescue Mode is not a substitute for professional support.
-          </AppText>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
   content: { paddingHorizontal: Spacing.base, paddingBottom: Spacing.xxxl },
-  header: { paddingTop: Spacing.xl, marginBottom: Spacing.xl, gap: Spacing.sm },
-  label: { marginBottom: Spacing.xs },
-  title: { letterSpacing: -0.3 },
-  feelings: { gap: 0 },
-  footer: { marginTop: Spacing.xl },
+  header: { paddingTop: Spacing.xl, marginBottom: Spacing.lg, gap: Spacing.xs },
+  title: { fontWeight: '800', letterSpacing: -0.5 },
+  textRight: { textAlign: 'right', writingDirection: 'rtl' },
+  section: { marginBottom: Spacing.lg, gap: Spacing.sm },
+  sectionLabel: {
+    color: Colors.muted,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: Spacing.xs,
+  },
 });

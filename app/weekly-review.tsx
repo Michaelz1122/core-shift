@@ -11,11 +11,13 @@ import SecondaryButton from '@/components/ui/SecondaryButton';
 import { ProgressBar } from '@/components/progress/ProgressCard';
 import { useAppStore } from '@/store/useAppStore';
 import { Colors, Spacing, Radii, Shadows } from '@/constants/theme';
+import { useTranslation } from '@/i18n';
 
 export default function WeeklyReviewScreen() {
+  const { t, isRTL } = useTranslation();
   const {
-    selectedHabitIds,
-    completedHabitIdsToday,
+    activeActionIds,
+    completedActionIdsToday,
     streakHistory,
     addNote,
     isDarkMode,
@@ -25,13 +27,12 @@ export default function WeeklyReviewScreen() {
   const [wasDifficult, setWasDifficult] = useState('');
   const [improveNext, setImproveNext] = useState('');
 
-  const totalPerDay = selectedHabitIds.length;
+  const totalPerDay = activeActionIds.length;
 
-  // Compute 100% real dynamic weekly completion rate from actual user state
-  let completedThisWeek = completedHabitIdsToday.length;
+  // Compute weekly completion rate from real user state
+  let completedThisWeek = completedActionIdsToday.length;
   let totalThisWeek = totalPerDay;
 
-  // Scan the previous 6 days
   for (let i = 1; i <= 6; i++) {
     const d = new Date();
     d.setDate(d.getDate() - i);
@@ -45,14 +46,13 @@ export default function WeeklyReviewScreen() {
   const missedThisWeek = Math.max(0, totalThisWeek - completedThisWeek);
   const weeklyCompletionRate = totalThisWeek > 0 ? completedThisWeek / totalThisWeek : 0;
 
-  // Active Save: compiles reflection and appends to Notes (triggering +15 XP!)
   const handleSave = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    
-    // Construct reflection summary
-    const reflectionText = `Weekly Reflections:\n\n1. What went well: ${wentWell.trim() || 'No feedback entered'}\n2. Difficulties faced: ${wasDifficult.trim() || 'No feedback entered'}\n3. Actionable improvements: ${improveNext.trim() || 'No feedback entered'}`;
-    
-    addNote(reflectionText); // Adds note, grants XP, and levels up if threshold crossed
+    const reflectionText = isRTL
+      ? `مراجعة أسبوعية:\n\n١. إيه اللي اتعمل كويس: ${wentWell.trim() || 'مفيش تعليق'}\n٢. الصعوبات: ${wasDifficult.trim() || 'مفيش تعليق'}\n٣. تحسينات الأسبوع الجاي: ${improveNext.trim() || 'مفيش تعليق'}`
+      : `Weekly Reflections:\n\n1. What went well: ${wentWell.trim() || 'No feedback entered'}\n2. Difficulties faced: ${wasDifficult.trim() || 'No feedback entered'}\n3. Actionable improvements: ${improveNext.trim() || 'No feedback entered'}`;
+
+    addNote(reflectionText);
     router.back();
   };
 
@@ -65,7 +65,9 @@ export default function WeeklyReviewScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={isDarkMode ? '#FFFFFF' : Colors.charcoal} />
         </TouchableOpacity>
-        <AppText variant="h3" style={styles.headerTitle}>Weekly System Review</AppText>
+        <AppText variant="h3" style={styles.headerTitle}>
+          {isRTL ? 'المراجعة الأسبوعية' : 'Weekly Review'}
+        </AppText>
         <View style={styles.backBtn} />
       </View>
 
@@ -76,30 +78,40 @@ export default function WeeklyReviewScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.titleBlock}>
-          <AppText variant="h1" style={styles.heroText}>Review this week.</AppText>
-          <AppText variant="body" color="muted">Commit to reflecting. Correct course for maximum agency.</AppText>
+          <AppText variant="h1" style={[styles.heroText, isRTL && styles.textRight]}>
+            {isRTL ? 'راجع الأسبوع.' : 'Review this week.'}
+          </AppText>
+          <AppText variant="body" color="muted" style={isRTL ? styles.textRight : undefined}>
+            {isRTL
+              ? 'خلي المراجعة عادة. صحح المسار عشان تكمل.'
+              : 'Commit to reflecting. Correct course for maximum progress.'}
+          </AppText>
         </View>
 
         {/* Weekly summary */}
-        <AppText variant="label" color="primaryBlue" style={styles.sectionLabel}>WEEKLY METRICS</AppText>
+        <AppText variant="label" color="primaryBlue" style={styles.sectionLabel}>
+          {isRTL ? 'إحصائيات الأسبوع' : 'WEEKLY METRICS'}
+        </AppText>
         <View style={styles.statRow}>
           <Card style={styles.statCard}>
-            <AppText variant="caption" color="muted">Completions</AppText>
+            <AppText variant="caption" color="muted">{isRTL ? 'مكتمل' : 'Completions'}</AppText>
             <AppText variant="h2" color="primaryBlue">{completedThisWeek}</AppText>
           </Card>
           <Card style={styles.statCard}>
-            <AppText variant="caption" color="muted">Missed Tasks</AppText>
+            <AppText variant="caption" color="muted">{isRTL ? 'فاتك' : 'Missed'}</AppText>
             <AppText variant="h2">{missedThisWeek}</AppText>
           </Card>
           <Card style={styles.statCard}>
-            <AppText variant="caption" color="muted">Success Rate</AppText>
+            <AppText variant="caption" color="muted">{isRTL ? 'النسبة' : 'Success Rate'}</AppText>
             <AppText variant="h2">{Math.round(weeklyCompletionRate * 100)}%</AppText>
           </Card>
         </View>
 
         <Card style={styles.rateCard}>
           <View style={styles.rateRow}>
-            <AppText variant="bodyMedium" style={styles.rateLabel}>Week Success Quotient</AppText>
+            <AppText variant="bodyMedium" style={styles.rateLabel}>
+              {isRTL ? 'معدل النجاح الأسبوعي' : 'Week Success Rate'}
+            </AppText>
             <AppText variant="bodyMedium" color="primaryBlue" style={styles.boldQuotient}>
               {Math.round(weeklyCompletionRate * 100)}%
             </AppText>
@@ -110,61 +122,69 @@ export default function WeeklyReviewScreen() {
         </Card>
 
         {/* Reflection prompts */}
-        <AppText variant="label" color="primaryBlue" style={styles.sectionLabel}>REFLECTIVE DISCIPLINE (+15 XP)</AppText>
+        <AppText variant="label" color="primaryBlue" style={styles.sectionLabel}>
+          {isRTL ? 'تأمل (+١٥ XP)' : 'REFLECT (+15 XP)'}
+        </AppText>
 
         <View style={styles.reflectionBlock}>
-          <AppText variant="bodyMedium" style={styles.questionLabel}>
-            What went well this week?
+          <AppText variant="bodyMedium" style={[styles.questionLabel, isRTL && styles.textRight]}>
+            {isRTL ? 'إيه اللي اتعمل كويس الأسبوع ده؟' : 'What went well this week?'}
           </AppText>
           <TextInput
-            style={styles.textarea}
-            placeholder="Document your small victories..."
+            style={[styles.textarea, isRTL && styles.textareaRTL]}
+            placeholder={isRTL ? 'سجل انتصاراتك الصغيرة...' : 'Document your small victories...'}
             placeholderTextColor={Colors.muted}
             value={wentWell}
             onChangeText={setWentWell}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
+            textAlign={isRTL ? 'right' : 'left'}
           />
         </View>
 
         <View style={styles.reflectionBlock}>
-          <AppText variant="bodyMedium" style={styles.questionLabel}>
-            What was difficult?
+          <AppText variant="bodyMedium" style={[styles.questionLabel, isRTL && styles.textRight]}>
+            {isRTL ? 'إيه اللي كان صعب؟' : 'What was difficult?'}
           </AppText>
           <TextInput
-            style={styles.textarea}
-            placeholder="Be brutally honest with your friction points..."
+            style={[styles.textarea, isRTL && styles.textareaRTL]}
+            placeholder={isRTL ? 'كن صريح مع نفسك...' : 'Be brutally honest with your friction points...'}
             placeholderTextColor={Colors.muted}
             value={wasDifficult}
             onChangeText={setWasDifficult}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
+            textAlign={isRTL ? 'right' : 'left'}
           />
         </View>
 
         <View style={styles.reflectionBlock}>
-          <AppText variant="bodyMedium" style={styles.questionLabel}>
-            What do you want to improve next week?
+          <AppText variant="bodyMedium" style={[styles.questionLabel, isRTL && styles.textRight]}>
+            {isRTL ? 'إيه اللي هتحسنه الأسبوع الجاي؟' : 'What do you want to improve next week?'}
           </AppText>
           <TextInput
-            style={styles.textarea}
-            placeholder="One specific high-agency change..."
+            style={[styles.textarea, isRTL && styles.textareaRTL]}
+            placeholder={isRTL ? 'تغيير واحد محدد...' : 'One specific actionable change...'}
             placeholderTextColor={Colors.muted}
             value={improveNext}
             onChangeText={setImproveNext}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
+            textAlign={isRTL ? 'right' : 'left'}
           />
         </View>
 
         <View style={styles.actions}>
-          <PrimaryButton title="Commit Weekly Review" onPress={handleSave} />
+          <PrimaryButton
+            title={isRTL ? 'حفظ المراجعة' : 'Commit Weekly Review'}
+            onPress={handleSave}
+          />
           <SecondaryButton
-            title="Calibrate Active Habits"
-            onPress={() => router.push('/onboarding/goals')}
+            title={isRTL ? 'تعديل الإجراءات النشطة' : 'Edit Active Actions'}
+            onPress={() => router.push('/onboarding/plan')}
             variant="outline"
           />
         </View>
@@ -186,6 +206,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 36, padding: Spacing.xs },
   headerTitle: { fontWeight: '800' },
+  textRight: { textAlign: 'right', writingDirection: 'rtl' },
   content: {
     paddingHorizontal: Spacing.base,
     paddingBottom: Spacing.xxxl,
@@ -227,18 +248,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  rateLabel: {
-    fontWeight: '600',
-  },
-  boldQuotient: {
-    fontWeight: '700',
-  },
-  barBox: {
-    marginTop: Spacing.xs,
-  },
-  reflectionBlock: {
-    marginBottom: Spacing.base,
-  },
+  rateLabel: { fontWeight: '600' },
+  boldQuotient: { fontWeight: '700' },
+  barBox: { marginTop: Spacing.xs },
+  reflectionBlock: { marginBottom: Spacing.base },
   questionLabel: {
     marginBottom: Spacing.sm,
     color: Colors.charcoal,
@@ -254,6 +267,9 @@ const styles = StyleSheet.create({
     color: Colors.charcoal,
     minHeight: 90,
     lineHeight: 22,
+  },
+  textareaRTL: {
+    writingDirection: 'rtl',
   },
   actions: {
     marginTop: Spacing.xl,

@@ -7,7 +7,8 @@ import AppText from '@/components/ui/AppText';
 import Card from '@/components/ui/Card';
 import { useAppStore } from '@/store/useAppStore';
 import { Colors, Spacing, Radii } from '@/constants/theme';
-import { Copy } from '@/constants/copy';
+import { useTranslation } from '@/i18n';
+import type { Language } from '@/types';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -42,18 +43,21 @@ function SettingsRow({ icon, label, onPress, rightContent, danger }: SettingsRow
 }
 
 export default function SettingsScreen() {
-  const { userName, userEmail, resetAll, isDarkMode, toggleDarkMode } = useAppStore();
+  const { t, language, isRTL } = useTranslation();
+  const { userName, userEmail, resetAll, isDarkMode, toggleDarkMode, setLanguage } = useAppStore();
 
   const avatarLetter = userName ? userName.charAt(0).toUpperCase() : '?';
 
   const handleReset = () => {
     Alert.alert(
-      'Reset local data',
-      'This will clear all your habits, progress, notes and onboarding data. Are you sure?',
+      isRTL ? 'إعادة تعيين البيانات' : 'Reset local data',
+      isRTL
+        ? 'ده هيمسح كل إجراءاتك وتقدمك وملاحظاتك. متأكد؟'
+        : 'This will clear all your actions, progress, notes and onboarding data. Are you sure?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' },
         {
-          text: 'Reset',
+          text: isRTL ? 'إعادة تعيين' : 'Reset',
           style: 'destructive',
           onPress: () => {
             resetAll();
@@ -69,6 +73,12 @@ export default function SettingsScreen() {
     toggleDarkMode();
   };
 
+  const handleLanguageSwitch = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const newLang: Language = language === 'ar' ? 'en' : 'ar';
+    setLanguage(newLang);
+  };
+
   const themeBg = isDarkMode ? '#121214' : Colors.background;
 
   return (
@@ -79,7 +89,9 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <AppText variant="h1">{Copy.settings.header}</AppText>
+          <AppText variant="h1" style={isRTL ? styles.textRight : undefined}>
+            {t.settingsHeader}
+          </AppText>
         </View>
 
         {/* Profile */}
@@ -88,94 +100,113 @@ export default function SettingsScreen() {
             <AppText style={styles.avatarText}>{avatarLetter}</AppText>
           </View>
           <View>
-            <AppText variant="h3">{userName || 'Your name'}</AppText>
+            <AppText variant="h3">{userName || (isRTL ? 'اسمك' : 'Your name')}</AppText>
             <AppText variant="small" color="muted">
               {userEmail || '—'}
             </AppText>
           </View>
         </Card>
 
-        {/* Habits & Goals */}
-        <AppText variant="label" style={styles.groupLabel}>Habits & Goals</AppText>
+        {/* Actions & Challenges */}
+        <AppText variant="label" style={styles.groupLabel}>
+          {isRTL ? 'الإجراءات والتحديات' : 'Actions & Challenges'}
+        </AppText>
         <Card style={styles.cardGroup}>
           <SettingsRow
             icon="list-outline"
-            label={Copy.settings.manageHabits}
-            onPress={() => router.push('/onboarding/habits')}
+            label={t.settingsManageActions}
+            onPress={() => router.push('/onboarding/plan')}
           />
           <View style={styles.divider} />
           <SettingsRow
             icon="flag-outline"
-            label={Copy.settings.editGoals}
-            onPress={() => router.push('/onboarding/goals')}
+            label={t.settingsEditChallenges}
+            onPress={() => router.push('/onboarding/challenge')}
           />
         </Card>
 
         {/* Reminders */}
-        <AppText variant="label" style={styles.groupLabel}>Reminders</AppText>
+        <AppText variant="label" style={styles.groupLabel}>
+          {isRTL ? 'التذكيرات' : 'Reminders'}
+        </AppText>
         <Card style={styles.cardGroup}>
           <SettingsRow
             icon="notifications-outline"
-            label={Copy.settings.reminders}
+            label={t.settingsReminders}
             onPress={() => router.push('/reminders')}
           />
           <View style={styles.divider} />
           <SettingsRow
             icon="calendar-outline"
-            label={Copy.settings.weeklyReview}
+            label={t.settingsWeeklyReview}
             onPress={() => router.push('/weekly-review')}
           />
         </Card>
 
         {/* Preferences */}
-        <AppText variant="label" style={styles.groupLabel}>Preferences</AppText>
+        <AppText variant="label" style={styles.groupLabel}>
+          {isRTL ? 'التفضيلات' : 'Preferences'}
+        </AppText>
         <Card style={styles.cardGroup}>
+          {/* Dark Mode */}
           <SettingsRow
             icon={isDarkMode ? 'moon' : 'moon-outline'}
-            label={Copy.settings.darkMode}
+            label={t.settingsDarkMode}
             onPress={handleToggleDarkMode}
             rightContent={
               <TouchableOpacity
                 onPress={handleToggleDarkMode}
                 activeOpacity={0.8}
-                style={[
-                  styles.switchTrack,
-                  isDarkMode && styles.switchTrackActive
-                ]}
+                style={[styles.switchTrack, isDarkMode && styles.switchTrackActive]}
               >
-                <View style={[
-                  styles.switchThumb,
-                  isDarkMode && styles.switchThumbActive
-                ]} />
+                <View style={[styles.switchThumb, isDarkMode && styles.switchThumbActive]} />
               </TouchableOpacity>
+            }
+          />
+          <View style={styles.divider} />
+          {/* Language Toggle */}
+          <SettingsRow
+            icon="language-outline"
+            label={t.settingsLanguage}
+            onPress={handleLanguageSwitch}
+            rightContent={
+              <View style={styles.langBadge}>
+                <AppText variant="caption" style={styles.langBadgeText}>
+                  {language === 'ar' ? '🇪🇬 العربية' : '🌍 English'}
+                </AppText>
+              </View>
             }
           />
         </Card>
 
         {/* Account */}
-        <AppText variant="label" style={styles.groupLabel}>Account</AppText>
+        <AppText variant="label" style={styles.groupLabel}>
+          {isRTL ? 'الحساب' : 'Account'}
+        </AppText>
         <Card style={styles.cardGroup}>
           <SettingsRow
             icon="log-out-outline"
-            label={Copy.settings.logout}
+            label={t.settingsLogout}
             onPress={() => router.replace('/auth/login')}
             danger
           />
         </Card>
 
-        {/* Dev / Debug */}
-        <AppText variant="label" style={styles.groupLabel}>Developer</AppText>
+        {/* Developer */}
+        <AppText variant="label" style={styles.groupLabel}>
+          {isRTL ? 'المطور' : 'Developer'}
+        </AppText>
         <Card style={styles.cardGroup}>
           <SettingsRow
             icon="trash-outline"
-            label="Reset local data"
+            label={t.settingsReset}
             onPress={handleReset}
             danger
           />
         </Card>
 
         <AppText variant="caption" align="center" color="muted" style={styles.version}>
-          CoreShift v1.0.0 · MVP
+          CoreShift v1.0.0 · Phase 1
         </AppText>
       </ScrollView>
     </SafeAreaView>
@@ -186,6 +217,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   content: { paddingHorizontal: Spacing.base, paddingBottom: Spacing.xxxl },
   header: { paddingTop: Spacing.xl, marginBottom: Spacing.lg },
+  textRight: { textAlign: 'right', writingDirection: 'rtl' },
+
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -201,6 +234,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: { fontSize: 22, fontWeight: '700', color: Colors.white },
+
   groupLabel: { color: Colors.muted, marginBottom: Spacing.sm, marginTop: Spacing.xs },
   cardGroup: { padding: 0, marginBottom: Spacing.lg, overflow: 'hidden' },
   row: {
@@ -226,7 +260,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
     marginLeft: Spacing.base + 34 + Spacing.md,
   },
-  // High fidelity custom Switch styling
+
+  // Custom switch
   switchTrack: {
     width: 46,
     height: 26,
@@ -235,9 +270,7 @@ const styles = StyleSheet.create({
     padding: 2,
     justifyContent: 'center',
   },
-  switchTrackActive: {
-    backgroundColor: Colors.primaryBlue,
-  },
+  switchTrackActive: { backgroundColor: Colors.primaryBlue },
   switchThumb: {
     width: 22,
     height: 22,
@@ -249,8 +282,16 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  switchThumbActive: {
-    transform: [{ translateX: 20 }],
+  switchThumbActive: { transform: [{ translateX: 20 }] },
+
+  // Language badge
+  langBadge: {
+    backgroundColor: Colors.blueLight,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Radii.full,
   },
+  langBadgeText: { color: Colors.primaryBlue, fontWeight: '700' },
+
   version: { marginTop: Spacing.xl },
 });

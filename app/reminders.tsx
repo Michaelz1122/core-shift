@@ -48,19 +48,19 @@ export default function RemindersScreen() {
     reminderArchetype,
     setDailyReminder,
     setReminderArchetype,
-    availableHabits,
-    selectedHabitIds,
+    actions,
+    activeActionIds,
     isDarkMode,
   } = useAppStore();
 
   const [showTestBanner, setShowTestBanner] = useState(false);
   const bannerY = useRef(new Animated.Value(-150)).current;
 
-  // Track habit reminder switch states locally (fully functional)
+  // Track action reminder switch states locally
   const [habitSwitches, setHabitSwitches] = useState<Record<string, boolean>>({});
 
-  // Filter actual active user habits from store available habits (100% end-to-end, NO hardcoding!)
-  const habits = availableHabits.filter((h) => selectedHabitIds.includes(h.id));
+  // Filter actual active actions from store
+  const habits = actions.filter((a) => activeActionIds.includes(a.id));
 
   // Toggle Daily Reminder Switch
   const handleToggleReminder = (value: boolean) => {

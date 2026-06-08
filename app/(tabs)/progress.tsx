@@ -8,7 +8,7 @@ import Card from '@/components/ui/Card';
 import ProgressCard, { ProgressBar } from '@/components/progress/ProgressCard';
 import { useAppStore } from '@/store/useAppStore';
 import { Colors, Spacing, Radii, Gradients, Shadows } from '@/constants/theme';
-import { Copy } from '@/constants/copy';
+import { useTranslation } from '@/i18n';
 import { daysSince } from '@/utils/dates';
 
 interface Badge {
@@ -23,41 +23,24 @@ interface Badge {
 const getHeatmapData = (streakHistory: Record<string, boolean>) => {
   const today = new Date();
   const data = [];
-  
-  // We generate 70 days (10 weeks) of history
   for (let i = 69; i >= 0; i--) {
     const d = new Date();
     d.setDate(today.getDate() - i);
     const dateStr = d.toISOString().split('T')[0];
-    
-    // Check if fully completed from history
-    let completed = streakHistory[dateStr] === true;
-    
-    // Seed some mock data for past days to make the grid look beautiful and active
-    if (!completed) {
-      const dayNum = d.getDate();
-      // Seed ~35% of past days as completed so the UI looks premium immediately
-      if (i > 0 && (dayNum % 3 === 0 || dayNum % 8 === 0)) {
-        completed = true;
-      }
-    }
-
-    data.push({
-      date: d,
-      dateStr,
-      completed,
-    });
+    const completed = streakHistory[dateStr] === true;
+    data.push({ date: d, dateStr, completed });
   }
   return data;
 };
 
 export default function ProgressScreen() {
+  const { t, language, isRTL } = useTranslation();
   const {
     onboardingCompletedAt,
-    totalHabitsCompleted,
-    selectedHabitIds,
-    availableHabits,
-    completedHabitIdsToday,
+    totalActionsCompleted,
+    activeActionIds,
+    actions,
+    completedActionIdsToday,
     xp,
     level,
     streakHistory,
@@ -65,47 +48,45 @@ export default function ProgressScreen() {
   } = useAppStore();
 
   const dayCount = onboardingCompletedAt ? daysSince(onboardingCompletedAt) : 0;
-  const totalHabits = selectedHabitIds.length;
-  const completedToday = completedHabitIdsToday.length;
-  const hasData = totalHabitsCompleted > 0 || completedToday > 0;
+  const totalActions = activeActionIds.length;
+  const completedToday = completedActionIdsToday.length;
+  const hasData = totalActionsCompleted > 0 || completedToday > 0;
 
-  // Generate heatmap grid data (10 weeks * 7 days = 70 squares)
   const heatmapData = getHeatmapData(streakHistory);
   const weeks = [];
   for (let i = 0; i < 10; i++) {
     weeks.push(heatmapData.slice(i * 7, (i + 1) * 7));
   }
 
-  // System Achievements/Badges
   const badges: Badge[] = [
     {
-      id: 'first_habit',
-      title: 'First Steps',
-      desc: 'Completed your very first habit!',
+      id: 'first_action',
+      title: language === 'ar' ? 'الخطوة الأولى' : 'First Steps',
+      desc: language === 'ar' ? 'أكملت أول إجراء لك!' : 'Completed your very first action!',
       icon: 'footsteps-sharp',
-      unlocked: totalHabitsCompleted > 0,
+      unlocked: totalActionsCompleted > 0,
       colors: Gradients.primary,
     },
     {
       id: 'level_3',
-      title: 'Mind Shifter',
-      desc: 'Achieved Level 3 Self-Mastery.',
+      title: language === 'ar' ? 'صانع التحول' : 'Mind Shifter',
+      desc: language === 'ar' ? 'وصلت للمستوى الثالث.' : 'Achieved Level 3.',
       icon: 'trophy-sharp',
       unlocked: level >= 3,
       colors: Gradients.gold,
     },
     {
       id: 'high_xp',
-      title: 'Zen Master',
-      desc: 'Accumulated 200+ XP in CoreShift.',
+      title: language === 'ar' ? 'استاذ الزن' : 'Zen Master',
+      desc: language === 'ar' ? 'جمعت ٢٠٠+ XP.' : 'Accumulated 200+ XP.',
       icon: 'leaf-sharp',
       unlocked: xp >= 200,
       colors: Gradients.purple,
     },
     {
       id: 'streak_3',
-      title: 'Flame Rider',
-      desc: 'Started a solid 3-day commitment.',
+      title: language === 'ar' ? 'راكب اللهب' : 'Flame Rider',
+      desc: language === 'ar' ? 'ابتدأت رحلة ٣ أيام.' : 'Started a solid 3-day journey.',
       icon: 'flame-sharp',
       unlocked: dayCount >= 3,
       colors: Gradients.danger,
@@ -113,6 +94,7 @@ export default function ProgressScreen() {
   ];
 
   const themeBg = isDarkMode ? '#121214' : Colors.background;
+  const activeList = actions.filter((a) => activeActionIds.includes(a.id));
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: themeBg }]} edges={['top']}>
@@ -122,16 +104,20 @@ export default function ProgressScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <AppText variant="h1">{Copy.progress.header}</AppText>
-          <AppText variant="body">{Copy.progress.subline}</AppText>
+          <AppText variant="h1" style={isRTL ? styles.textRight : undefined}>
+            {language === 'ar' ? 'رحلتك حتى الآن' : 'Your journey so far'}
+          </AppText>
+          <AppText variant="body" style={isRTL ? styles.textRight : undefined}>
+            {language === 'ar' ? 'التقدم أهم من الكمال.' : 'Progress over perfection.'}
+          </AppText>
         </View>
 
-        {/* Gamified Stat Grid */}
+        {/* Stat Grid */}
         <View style={styles.statRow}>
           <ProgressCard
-            label={`${Copy.progress.journeyDays}`}
+            label={language === 'ar' ? 'يوم' : 'Day'}
             value={dayCount > 0 ? `${dayCount}d` : '1d'}
-            subtitle="in CoreShift"
+            subtitle={language === 'ar' ? 'في CoreShift' : 'in CoreShift'}
             accent
           />
           <ProgressCard
@@ -140,28 +126,32 @@ export default function ProgressScreen() {
             subtitle={`Level ${level}`}
           />
           <ProgressCard
-            label="Completed"
-            value={String(totalHabitsCompleted)}
-            subtitle="habits total"
+            label={language === 'ar' ? 'مكتمل' : 'Completed'}
+            value={String(totalActionsCompleted)}
+            subtitle={language === 'ar' ? 'إجراءات' : 'actions total'}
           />
         </View>
 
         {/* Today's progress */}
-        {totalHabits > 0 && (
+        {totalActions > 0 && (
           <Card style={styles.rateCard}>
             <View style={styles.rateRow}>
-              <AppText variant="bodyMedium">Today's completion</AppText>
+              <AppText variant="bodyMedium" style={isRTL ? styles.textRight : undefined}>
+                {language === 'ar' ? 'إنجاز اليوم' : "Today's completion"}
+              </AppText>
               <AppText variant="h3" color="primaryBlue">
-                {totalHabits > 0 ? Math.round((completedToday / totalHabits) * 100) : 0}%
+                {totalActions > 0 ? Math.round((completedToday / totalActions) * 100) : 0}%
               </AppText>
             </View>
-            <ProgressBar value={completedToday} total={totalHabits} />
+            <ProgressBar value={completedToday} total={totalActions} />
           </Card>
         )}
 
-        {/* GitHub-style Consistency Heatmap Grid */}
+        {/* Consistency Heatmap */}
         <View style={styles.section}>
-          <AppText variant="h3" style={styles.sectionTitle}>Consistency Heatmap</AppText>
+          <AppText variant="h3" style={[styles.sectionTitle, isRTL && styles.textRight]}>
+            {language === 'ar' ? 'خريطة الثبات' : 'Consistency Heatmap'}
+          </AppText>
           <Card style={styles.heatmapCard}>
             <View style={styles.heatmapGrid}>
               {weeks.map((week, weekIdx) => (
@@ -171,7 +161,7 @@ export default function ProgressScreen() {
                       key={dayIdx}
                       style={[
                         styles.heatmapSquare,
-                        day.completed ? styles.squareDone : styles.squareEmpty
+                        day.completed ? styles.squareDone : styles.squareEmpty,
                       ]}
                     />
                   ))}
@@ -179,20 +169,29 @@ export default function ProgressScreen() {
               ))}
             </View>
             <View style={styles.heatmapLegend}>
-              <AppText variant="caption" color="muted">Less</AppText>
+              <AppText variant="caption" color="muted">
+                {language === 'ar' ? 'أقل' : 'Less'}
+              </AppText>
               <View style={[styles.heatmapSquare, styles.squareEmpty, { width: 10, height: 10 }]} />
               <View style={[styles.heatmapSquare, styles.squareDone, { width: 10, height: 10 }]} />
-              <AppText variant="caption" color="muted">More</AppText>
+              <AppText variant="caption" color="muted">
+                {language === 'ar' ? 'أكثر' : 'More'}
+              </AppText>
             </View>
           </Card>
         </View>
 
-        {/* Achievements / Badges Grid */}
+        {/* Achievements */}
         <View style={styles.section}>
-          <AppText variant="h3" style={styles.sectionTitle}>Unlocked Achievements</AppText>
+          <AppText variant="h3" style={[styles.sectionTitle, isRTL && styles.textRight]}>
+            {language === 'ar' ? 'الإنجازات' : 'Achievements'}
+          </AppText>
           <View style={styles.badgesGrid}>
             {badges.map((badge) => (
-              <Card key={badge.id} style={[styles.badgeCard, !badge.unlocked && styles.badgeCardLocked]}>
+              <Card
+                key={badge.id}
+                style={[styles.badgeCard, !badge.unlocked && styles.badgeCardLocked]}
+              >
                 {badge.unlocked ? (
                   <LinearGradient
                     colors={badge.colors}
@@ -208,7 +207,10 @@ export default function ProgressScreen() {
                   </View>
                 )}
                 <View style={styles.badgeTextWrapper}>
-                  <AppText variant="bodyMedium" style={[styles.badgeTitle, !badge.unlocked && styles.badgeTitleLocked]}>
+                  <AppText
+                    variant="bodyMedium"
+                    style={[styles.badgeTitle, !badge.unlocked && styles.badgeTitleLocked]}
+                  >
                     {badge.title}
                   </AppText>
                   <AppText variant="caption" style={styles.badgeDesc} align="center">
@@ -220,45 +222,49 @@ export default function ProgressScreen() {
           </View>
         </View>
 
-        {/* Your habits list */}
-        {availableHabits.filter((h) => selectedHabitIds.includes(h.id)).length > 0 && (
+        {/* Active actions list */}
+        {activeList.length > 0 && (
           <View style={styles.section}>
-            <AppText variant="h3" style={styles.sectionTitle}>Your active habits</AppText>
-            <Card style={styles.habitList}>
-              {availableHabits
-                .filter((h) => selectedHabitIds.includes(h.id))
-                .map((habit, idx, arr) => (
+            <AppText variant="h3" style={[styles.sectionTitle, isRTL && styles.textRight]}>
+              {language === 'ar' ? 'إجراءاتك النشطة' : 'Your active actions'}
+            </AppText>
+            <Card style={styles.actionList}>
+              {activeList.map((action, idx, arr) => (
+                <View
+                  key={action.id}
+                  style={[
+                    styles.actionRow,
+                    idx < arr.length - 1 && styles.actionBorder,
+                  ]}
+                >
                   <View
-                    key={habit.id}
                     style={[
-                      styles.habitRow,
-                      idx < arr.length - 1 && styles.habitBorder,
+                      styles.actionDot,
+                      completedActionIdsToday.includes(action.id) && styles.actionDotDone,
                     ]}
-                  >
-                    <View
-                      style={[
-                        styles.habitDot,
-                        completedHabitIdsToday.includes(habit.id) && styles.habitDotDone,
-                      ]}
-                    />
-                    <AppText variant="bodyMedium" style={styles.habitTitle}>
-                      {habit.title}
-                    </AppText>
-                    {completedHabitIdsToday.includes(habit.id) && (
-                      <Ionicons name="checkmark-circle" size={18} color={Colors.primaryBlue} />
-                    )}
-                  </View>
-                ))}
+                  />
+                  <AppText variant="bodyMedium" style={styles.actionTitle}>
+                    {action.emoji} {action.title}
+                  </AppText>
+                  {completedActionIdsToday.includes(action.id) && (
+                    <Ionicons name="checkmark-circle" size={18} color={Colors.primaryBlue} />
+                  )}
+                </View>
+              ))}
             </Card>
           </View>
         )}
 
-        {/* Empty / early state */}
+        {/* Empty state */}
         {!hasData && (
           <Card style={styles.emptyCard}>
-            <AppText variant="bodyMedium" align="center">Your progress starts here.</AppText>
+            <AppText variant="bodyMedium" align="center">
+              {language === 'ar' ? 'تقدمك يبدأ هنا.' : 'Your progress starts here.'}
+            </AppText>
             <AppText variant="small" align="center" color="muted" style={styles.emptySubtitle}>
-              {Copy.empty.noProgress}
+              {language === 'ar'
+                ? 'أكمل إجراءاتك اليومية عشان تشوف تقدمك.'
+                : 'Complete your daily actions to see your progress.'}
             </AppText>
           </Card>
         )}
@@ -268,42 +274,22 @@ export default function ProgressScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
   content: { paddingHorizontal: Spacing.base, paddingBottom: Spacing.xxxl },
   header: { paddingTop: Spacing.xl, marginBottom: Spacing.lg, gap: Spacing.xs },
+  textRight: { textAlign: 'right', writingDirection: 'rtl' },
   statRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.base },
   rateCard: { marginBottom: Spacing.xl, gap: Spacing.sm },
   rateRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-
   section: { marginBottom: Spacing.xl },
   sectionTitle: { marginBottom: Spacing.sm, fontWeight: '700' },
-  
-  // Heatmap styles
-  heatmapCard: {
-    padding: Spacing.md,
-    alignItems: 'center',
-    gap: Spacing.md,
-    ...Shadows.sm,
-  },
-  heatmapGrid: {
-    flexDirection: 'row',
-    gap: 5,
-  },
-  heatmapColumn: {
-    flexDirection: 'column',
-    gap: 5,
-  },
-  heatmapSquare: {
-    width: 14,
-    height: 14,
-    borderRadius: 3,
-  },
-  squareEmpty: {
-    backgroundColor: '#E5E5EA',
-  },
-  squareDone: {
-    backgroundColor: Colors.primaryBlue,
-  },
+
+  heatmapCard: { padding: Spacing.md, alignItems: 'center', gap: Spacing.md, ...Shadows.sm },
+  heatmapGrid: { flexDirection: 'row', gap: 5 },
+  heatmapColumn: { flexDirection: 'column', gap: 5 },
+  heatmapSquare: { width: 14, height: 14, borderRadius: 3 },
+  squareEmpty: { backgroundColor: '#E5E5EA' },
+  squareDone: { backgroundColor: Colors.primaryBlue },
   heatmapLegend: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -311,20 +297,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
 
-  // Achievements/Badges styles
-  badgesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
-  badgeCard: {
-    flex: 1,
-    minWidth: '46%',
-    padding: Spacing.md,
-    alignItems: 'center',
-    gap: Spacing.xs,
-    ...Shadows.sm,
-  },
+  badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  badgeCard: { flex: 1, minWidth: '46%', padding: Spacing.md, alignItems: 'center', gap: Spacing.xs, ...Shadows.sm },
   badgeCardLocked: {
     opacity: 0.5,
     borderStyle: 'dashed',
@@ -341,43 +315,24 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     ...Shadows.sm,
   },
-  badgeIconBgLocked: {
-    backgroundColor: '#E5E5EA',
-  },
-  badgeTextWrapper: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  badgeTitle: {
-    fontWeight: '700',
-    color: Colors.charcoal,
-  },
-  badgeTitleLocked: {
-    color: Colors.muted,
-  },
-  badgeDesc: {
-    color: Colors.muted,
-    fontSize: 10,
-    lineHeight: 13,
-  },
+  badgeIconBgLocked: { backgroundColor: '#E5E5EA' },
+  badgeTextWrapper: { alignItems: 'center', gap: 2 },
+  badgeTitle: { fontWeight: '700', color: Colors.charcoal },
+  badgeTitleLocked: { color: Colors.muted },
+  badgeDesc: { color: Colors.muted, fontSize: 10, lineHeight: 13 },
 
-  habitList: { padding: 0, overflow: 'hidden' },
-  habitRow: {
+  actionList: { padding: 0, overflow: 'hidden' },
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.base,
   },
-  habitBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
-  habitDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.border,
-  },
-  habitDotDone: { backgroundColor: Colors.primaryBlue },
-  habitTitle: { flex: 1 },
+  actionBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
+  actionDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.border },
+  actionDotDone: { backgroundColor: Colors.primaryBlue },
+  actionTitle: { flex: 1 },
 
   emptyCard: { paddingVertical: Spacing.xxl, gap: Spacing.sm },
   emptySubtitle: { marginTop: Spacing.xs },

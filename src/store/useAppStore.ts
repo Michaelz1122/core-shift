@@ -1,13 +1,23 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GoalId, StruggleId, Habit, CheckIn, Note, MoodType } from '@/types';
+import type {
+  Language,
+  ChallengeId,
+  VisionId,
+  Action,
+  CheckIn,
+  Note,
+  MoodType,
+} from '@/types';
 import { getTodayString } from '@/utils/dates';
-import { generateHabitSuggestions } from '@/utils/habitSuggestions';
 
 // ─── State shape ──────────────────────────────────────────────────────────────
 
 interface AppStore {
+  // Language
+  language: Language;
+
   // User
   userName: string;
   userEmail: string;
@@ -15,26 +25,27 @@ interface AppStore {
 
   // Onboarding
   onboardingCompleted: boolean;
-  selectedGoalIds: GoalId[];
-  selectedStruggleIds: StruggleId[];
-  availableHabits: Habit[];      // generated after struggles selected
-  selectedHabitIds: string[];    // user's chosen subset
+  selectedChallengeIds: ChallengeId[];
+  selectedVisionIds: VisionId[];
+  quizAnswers: Record<string, string>;
+  actions: Action[];           // full catalogue of user's actions
+  activeActionIds: string[];   // which actions are currently active
   onboardingCompletedAt: string | null;
 
-  // Today
-  completedHabitIdsToday: string[];
-  completionDate: string;        // date the completions belong to
+  // Today (date-aware, auto-reset on new day)
+  completedActionIdsToday: string[];
+  completionDate: string;
   todayCheckIn: CheckIn | null;
-  checkInDate: string;           // date the check-in belongs to
+  checkInDate: string;
 
   // Notes
   notes: Note[];
 
   // Stats & Gamification
-  totalHabitsCompleted: number;
+  totalActionsCompleted: number;
   xp: number;
   level: number;
-  streakHistory: Record<string, boolean>; // 'YYYY-MM-DD' -> true
+  streakHistory: Record<string, boolean>; // 'YYYY-MM-DD' → true
 
   // Settings
   dailyReminderEnabled: boolean;
@@ -47,18 +58,22 @@ interface AppStore {
   // Auth
   setUser: (name: string, email: string, provider: 'email' | 'google') => void;
 
+  // Language
+  setLanguage: (lang: Language) => void;
+
   // Onboarding
-  toggleGoal: (id: GoalId) => void;
-  toggleStruggle: (id: StruggleId) => void;
-  buildAvailableHabits: () => void;
-  toggleHabit: (id: string) => void;
-  addCustomHabit: (title: string, goalId: GoalId, frequency: 'daily' | 'weekly') => void;
+  toggleChallenge: (id: ChallengeId) => void;
+  toggleVision: (id: VisionId) => void;
+  setQuizAnswers: (answers: Record<string, string>) => void;
+  setActions: (actions: Action[]) => void;
+  toggleAction: (id: string) => void;
+  addCustomAction: (title: string, challengeId: ChallengeId, frequency: 'daily' | 'weekly') => void;
   completeOnboarding: () => void;
 
   // Today — date-aware helpers
   checkDateReset: () => void;
-  toggleHabitCompletion: (habitId: string) => void;
-  isHabitCompleted: (habitId: string) => boolean;
+  toggleActionCompletion: (actionId: string) => void;
+  isActionCompleted: (actionId: string) => boolean;
   saveCheckIn: (data: Omit<CheckIn, 'date'>) => void;
   getTodayCheckIn: () => CheckIn | null;
 
@@ -71,10 +86,10 @@ interface AppStore {
   setReminderArchetype: (archetype: 'zen' | 'copilot' | 'discipline') => void;
   toggleDarkMode: () => void;
 
-  // Gamification Actions
+  // Gamification
   addXp: (amount: number) => void;
 
-  // Dev/testing
+  // Dev
   resetAll: () => void;
 }
 
@@ -83,15 +98,17 @@ interface AppStore {
 const INITIAL: Omit<
   AppStore,
   | 'setUser'
-  | 'toggleGoal'
-  | 'toggleStruggle'
-  | 'buildAvailableHabits'
-  | 'toggleHabit'
-  | 'addCustomHabit'
+  | 'setLanguage'
+  | 'toggleChallenge'
+  | 'toggleVision'
+  | 'setQuizAnswers'
+  | 'setActions'
+  | 'toggleAction'
+  | 'addCustomAction'
   | 'completeOnboarding'
   | 'checkDateReset'
-  | 'toggleHabitCompletion'
-  | 'isHabitCompleted'
+  | 'toggleActionCompletion'
+  | 'isActionCompleted'
   | 'saveCheckIn'
   | 'getTodayCheckIn'
   | 'addNote'
@@ -102,21 +119,23 @@ const INITIAL: Omit<
   | 'addXp'
   | 'resetAll'
 > = {
+  language: 'en',
   userName: '',
   userEmail: '',
   authProvider: null,
   onboardingCompleted: false,
-  selectedGoalIds: [],
-  selectedStruggleIds: [],
-  availableHabits: [],
-  selectedHabitIds: [],
+  selectedChallengeIds: [],
+  selectedVisionIds: [],
+  quizAnswers: {},
+  actions: [],
+  activeActionIds: [],
   onboardingCompletedAt: null,
-  completedHabitIdsToday: [],
+  completedActionIdsToday: [],
   completionDate: '',
   todayCheckIn: null,
   checkInDate: '',
   notes: [],
-  totalHabitsCompleted: 0,
+  totalActionsCompleted: 0,
   xp: 0,
   level: 1,
   streakHistory: {},
@@ -137,58 +156,61 @@ export const useAppStore = create<AppStore>()(
       setUser: (name, email, provider) =>
         set({ userName: name, userEmail: email, authProvider: provider }),
 
-      // ── Onboarding ────────────────────────────────────────────────────────
-      toggleGoal: (id) => {
-        const current = get().selectedGoalIds;
-        if (current.includes(id)) {
-          set({ selectedGoalIds: current.filter((g) => g !== id) });
-        } else if (current.length < 3) {
-          set({ selectedGoalIds: [...current, id] });
-        }
-      },
-      toggleStruggle: (id) => {
-        const current = get().selectedStruggleIds;
-        if (current.includes(id)) {
-          set({ selectedStruggleIds: current.filter((s) => s !== id) });
-        } else if (current.length < 3) {
-          set({ selectedStruggleIds: [...current, id] });
-        }
-      },
-      buildAvailableHabits: () => {
-        const { availableHabits } = get();
-        // Safeguard: Do not rebuild and overwrite if habits are already loaded/added!
-        if (availableHabits.length > 0) return;
+      // ── Language ──────────────────────────────────────────────────────────
+      setLanguage: (lang) => set({ language: lang }),
 
-        // Initialize empty to allow 100% custom user-defined habits under selected pathways
-        set({
-          availableHabits: [],
-          selectedHabitIds: [],
-        });
-      },
-      toggleHabit: (id) => {
-        const current = get().selectedHabitIds;
+      // ── Onboarding ────────────────────────────────────────────────────────
+      toggleChallenge: (id) => {
+        const current = get().selectedChallengeIds;
         if (current.includes(id)) {
-          set({ selectedHabitIds: current.filter((h) => h !== id) });
-        } else {
-          set({ selectedHabitIds: [...current, id] });
+          set({ selectedChallengeIds: current.filter((c) => c !== id) });
+        } else if (current.length < 2) {
+          set({ selectedChallengeIds: [...current, id] });
         }
       },
-      addCustomHabit: (title, goalId, frequency) => {
+      toggleVision: (id) => {
+        const current = get().selectedVisionIds;
+        if (current.includes(id)) {
+          set({ selectedVisionIds: current.filter((v) => v !== id) });
+        } else {
+          set({ selectedVisionIds: [...current, id] });
+        }
+      },
+      setQuizAnswers: (answers) => set({ quizAnswers: answers }),
+
+      setActions: (actions) =>
+        set({
+          actions,
+          // Pre-select top 5 (caller decides; here we default to first 5)
+          activeActionIds: actions.slice(0, 5).map((a) => a.id),
+        }),
+
+      toggleAction: (id) => {
+        const current = get().activeActionIds;
+        if (current.includes(id)) {
+          set({ activeActionIds: current.filter((a) => a !== id) });
+        } else {
+          set({ activeActionIds: [...current, id] });
+        }
+      },
+
+      addCustomAction: (title, challengeId, frequency) => {
         const id = `custom-${Date.now()}`;
-        const newHabit: Habit = {
+        const newAction: Action = {
           id,
           title,
-          goalId,
+          emoji: '⭐',
+          challengeId,
           frequency,
+          difficulty: 'beginner',
           isCustom: true,
         };
-        const currentAvailable = get().availableHabits;
-        const currentSelected = get().selectedHabitIds;
         set({
-          availableHabits: [...currentAvailable, newHabit],
-          selectedHabitIds: [...currentSelected, id],
+          actions: [...get().actions, newAction],
+          activeActionIds: [...get().activeActionIds, id],
         });
       },
+
       completeOnboarding: () =>
         set({
           onboardingCompleted: true,
@@ -201,7 +223,7 @@ export const useAppStore = create<AppStore>()(
         const { completionDate, checkInDate } = get();
         const updates: Partial<AppStore> = {};
         if (completionDate !== today) {
-          updates.completedHabitIdsToday = [];
+          updates.completedActionIdsToday = [];
           updates.completionDate = today;
         }
         if (checkInDate !== today) {
@@ -210,69 +232,67 @@ export const useAppStore = create<AppStore>()(
         }
         if (Object.keys(updates).length) set(updates as AppStore);
       },
-      toggleHabitCompletion: (habitId) => {
+
+      toggleActionCompletion: (actionId) => {
         const today = getTodayString();
         const state = get();
 
-        // Reset if new day
         if (state.completionDate !== today) {
-          set({ completedHabitIdsToday: [], completionDate: today });
+          set({ completedActionIdsToday: [], completionDate: today });
         }
 
-        const current = get().completedHabitIdsToday;
-        const wasCompleted = current.includes(habitId);
-
+        const current = get().completedActionIdsToday;
+        const wasCompleted = current.includes(actionId);
         const newCompletions = wasCompleted
-          ? current.filter((id) => id !== habitId)
-          : [...current, habitId];
+          ? current.filter((id) => id !== actionId)
+          : [...current, actionId];
 
-        // Reward +10 XP for completion, subtract -10 XP for un-completion to prevent farming
         const xpChange = wasCompleted ? -10 : 10;
-        const currentXp = get().xp;
-        const newXp = Math.max(0, currentXp + xpChange);
+        const newXp = Math.max(0, get().xp + xpChange);
         const newLevel = Math.floor(newXp / 100) + 1;
 
-        // Check if all selected habits for today are completed to update streakHistory
-        const selectedHabits = get().selectedHabitIds.filter(id => 
-          get().availableHabits.some(h => h.id === id)
+        // Streak: all active actions done today?
+        const activeActions = get().activeActionIds.filter((id) =>
+          get().actions.some((a) => a.id === id)
         );
-        const isAllDone = selectedHabits.length > 0 && selectedHabits.every(id => newCompletions.includes(id));
-        const currentStreakHistory = { ...get().streakHistory };
+        const isAllDone =
+          activeActions.length > 0 &&
+          activeActions.every((id) => newCompletions.includes(id));
+
+        const newStreak = { ...get().streakHistory };
         if (isAllDone) {
-          currentStreakHistory[today] = true;
+          newStreak[today] = true;
         } else {
-          delete currentStreakHistory[today];
+          delete newStreak[today];
         }
 
         set({
-          completedHabitIdsToday: newCompletions,
-          totalHabitsCompleted: wasCompleted
-            ? Math.max(0, get().totalHabitsCompleted - 1)
-            : get().totalHabitsCompleted + 1,
+          completedActionIdsToday: newCompletions,
+          totalActionsCompleted: wasCompleted
+            ? Math.max(0, get().totalActionsCompleted - 1)
+            : get().totalActionsCompleted + 1,
           xp: newXp,
           level: newLevel,
-          streakHistory: currentStreakHistory,
+          streakHistory: newStreak,
         });
       },
-      isHabitCompleted: (habitId) => {
+
+      isActionCompleted: (actionId) => {
         const today = getTodayString();
-        const { completionDate, completedHabitIdsToday } = get();
+        const { completionDate, completedActionIdsToday } = get();
         if (completionDate !== today) return false;
-        return completedHabitIdsToday.includes(habitId);
+        return completedActionIdsToday.includes(actionId);
       },
+
       saveCheckIn: (data) => {
         const today = getTodayString();
         const state = get();
-        
-        // Only award XP once per day for the check-in
         const isNewCheckIn = state.todayCheckIn === null || state.checkInDate !== today;
         const xpChange = isNewCheckIn ? 25 : 0;
-        const currentXp = get().xp;
-        const newXp = Math.max(0, currentXp + xpChange);
+        const newXp = Math.max(0, state.xp + xpChange);
         const newLevel = Math.floor(newXp / 100) + 1;
 
         let currentNotes = [...state.notes];
-        // If a check-in note is typed, automatically create a beautiful reflection log entry!
         if (data.note && data.note.trim()) {
           const checkInNote: Note = {
             id: `note-${Date.now()}`,
@@ -283,14 +303,15 @@ export const useAppStore = create<AppStore>()(
           currentNotes = [checkInNote, ...currentNotes];
         }
 
-        set({ 
-          todayCheckIn: { ...data, date: today }, 
+        set({
+          todayCheckIn: { ...data, date: today },
           checkInDate: today,
           xp: newXp,
           level: newLevel,
-          notes: currentNotes
+          notes: currentNotes,
         });
       },
+
       getTodayCheckIn: () => {
         const today = getTodayString();
         const { checkInDate, todayCheckIn } = get();
@@ -305,20 +326,15 @@ export const useAppStore = create<AppStore>()(
           content,
           createdAt: new Date().toISOString(),
         };
-
-        // Award +15 XP for adding a self-reflection note
-        const currentXp = get().xp;
-        const newXp = Math.max(0, currentXp + 15);
-        const newLevel = Math.floor(newXp / 100) + 1;
-
-        set({ 
+        const newXp = Math.max(0, get().xp + 15);
+        set({
           notes: [note, ...get().notes],
           xp: newXp,
-          level: newLevel
+          level: Math.floor(newXp / 100) + 1,
         });
       },
-      deleteNote: (id) =>
-        set({ notes: get().notes.filter((n) => n.id !== id) }),
+
+      deleteNote: (id) => set({ notes: get().notes.filter((n) => n.id !== id) }),
 
       // ── Settings ──────────────────────────────────────────────────────────
       setDailyReminder: (enabled, time) =>
@@ -326,26 +342,20 @@ export const useAppStore = create<AppStore>()(
           dailyReminderEnabled: enabled,
           dailyReminderTime: time ?? get().dailyReminderTime,
         }),
-      setReminderArchetype: (archetype) =>
-        set({
-          reminderArchetype: archetype,
-        }),
-      toggleDarkMode: () =>
-        set({ isDarkMode: !get().isDarkMode }),
+      setReminderArchetype: (archetype) => set({ reminderArchetype: archetype }),
+      toggleDarkMode: () => set({ isDarkMode: !get().isDarkMode }),
 
-      // ── Gamification Actions ──────────────────────────────────────────────
+      // ── Gamification ──────────────────────────────────────────────────────
       addXp: (amount) => {
-        const currentXp = get().xp;
-        const newXp = Math.max(0, currentXp + amount);
-        const newLevel = Math.floor(newXp / 100) + 1;
-        set({ xp: newXp, level: newLevel });
+        const newXp = Math.max(0, get().xp + amount);
+        set({ xp: newXp, level: Math.floor(newXp / 100) + 1 });
       },
 
       // ── Dev reset ─────────────────────────────────────────────────────────
       resetAll: () => set({ ...INITIAL }),
     }),
     {
-      name: 'coreshift-v1',
+      name: 'coreshift-v2',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

@@ -1,175 +1,192 @@
-import React from 'react';
-import { View, StyleSheet, Dimensions, Image } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Screen from '@/components/ui/Screen';
 import AppText from '@/components/ui/AppText';
-import PrimaryButton from '@/components/ui/PrimaryButton';
 import { Colors, Spacing, Radii, Gradients, Shadows } from '@/constants/theme';
-
+import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
 
-const { width } = Dimensions.get('window');
+interface FeatureCard {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  title: string;
+  desc: string;
+  gradient: readonly [string, string];
+}
 
 export default function OnboardingWelcome() {
-  const isDarkMode = useAppStore((state) => state.isDarkMode);
-  
-  const cardBg = isDarkMode ? '#1C1C1E' : Colors.white;
+  const { t, isRTL } = useTranslation();
+  const isDarkMode = useAppStore((s) => s.isDarkMode);
+
+  const cardBg = isDarkMode ? '#1C1C1E' : Colors.card;
   const borderCol = isDarkMode ? '#2C2C2E' : Colors.border;
-  const emojiBg = isDarkMode ? 'rgba(45, 127, 249, 0.15)' : Colors.blueLight;
+  const themeBg = isDarkMode ? '#121214' : Colors.background;
+
+  const features: FeatureCard[] = [
+    {
+      icon: 'person-circle-outline',
+      title: t.welcomeFeature1Title,
+      desc: t.welcomeFeature1Desc,
+      gradient: Gradients.primary,
+    },
+    {
+      icon: 'shield-checkmark-outline',
+      title: t.welcomeFeature2Title,
+      desc: t.welcomeFeature2Desc,
+      gradient: Gradients.purple,
+    },
+    {
+      icon: 'bar-chart-outline',
+      title: t.welcomeFeature3Title,
+      desc: t.welcomeFeature3Desc,
+      gradient: Gradients.gold,
+    },
+  ];
 
   return (
-    <Screen>
+    <SafeAreaView style={[styles.safe, { backgroundColor: themeBg }]} edges={['top', 'bottom']}>
       <View style={styles.container}>
-        {/* Futuristic Top Header Banner */}
-        <View style={styles.topSection}>
-          <View style={[styles.logoContainer, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <Image
-              source={require('../../assets/icon.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-          </View>
-
-          <AppText variant="hero" style={styles.headline} align="center">
-            CoreShift
+        {/* Header */}
+        <View style={styles.header}>
+          <LinearGradient
+            colors={Gradients.xp}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.logoGradient}
+          >
+            <AppText style={styles.logoEmoji}>⚡</AppText>
+          </LinearGradient>
+          <AppText
+            variant="hero"
+            style={[styles.title, isRTL && styles.textRight]}
+          >
+            {t.welcomeTitle}
           </AppText>
-          <AppText variant="bodyMedium" color="muted" align="center" style={styles.sub}>
-            Change from the inside out. Forge a resilient, science-backed system for ultimate self-mastery.
+          <AppText
+            variant="body"
+            style={[styles.subtitle, isRTL && styles.textRight]}
+          >
+            {t.welcomeSubtitle}
           </AppText>
         </View>
 
-        {/* Feature List Cards */}
+        {/* Feature cards */}
         <View style={styles.features}>
-          {[
-            {
-              emoji: '🎯',
-              title: 'High-Agency Habits',
-              desc: 'Select daily action loops tailored to your spiritual, physical, and intellectual growth.',
-            },
-            {
-              emoji: '⚡',
-              title: 'Active Rescue Systems',
-              desc: 'Overcome laziness, overthinking, fatigue, and urges with active state-shifting interventions.',
-            },
-            {
-              emoji: '📊',
-              title: 'Deep Progress Analytics',
-              desc: 'Measure self-improvement and consistency through GitHub-style heatmap contribution calendars.',
-            },
-          ].map((item, idx) => (
+          {features.map((f) => (
             <View
-              key={idx}
+              key={f.title}
               style={[
-                styles.featureRow,
-                { backgroundColor: cardBg, borderColor: borderCol }
+                styles.featureCard,
+                { backgroundColor: cardBg, borderColor: borderCol },
               ]}
             >
-              <View style={[styles.featureEmojiContainer, { backgroundColor: emojiBg }]}>
-                <AppText style={styles.featureEmoji}>{item.emoji}</AppText>
-              </View>
-              <View style={styles.featureTextContainer}>
-                <AppText variant="bodyMedium" style={styles.featureTitle}>
-                  {item.title}
+              <LinearGradient
+                colors={f.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.featureIcon}
+              >
+                <Ionicons name={f.icon} size={20} color={Colors.white} />
+              </LinearGradient>
+              <View style={styles.featureText}>
+                <AppText
+                  variant="bodyMedium"
+                  style={[styles.featureTitle, isRTL && styles.textRight]}
+                >
+                  {f.title}
                 </AppText>
-                <AppText variant="caption" color="muted" style={styles.featureDesc}>
-                  {item.desc}
+                <AppText
+                  variant="small"
+                  color="muted"
+                  style={isRTL ? styles.textRight : undefined}
+                >
+                  {f.desc}
                 </AppText>
               </View>
             </View>
           ))}
         </View>
 
-        {/* Start Button */}
-        <View style={styles.footer}>
-          <PrimaryButton
-            title="Initialize Onboarding"
-            onPress={() => router.push('/onboarding/goals')}
-          />
-        </View>
+        {/* CTA */}
+        <TouchableOpacity
+          onPress={() => router.push('/onboarding/language')}
+          activeOpacity={0.9}
+          style={styles.ctaWrapper}
+        >
+          <LinearGradient
+            colors={Gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.cta}
+          >
+            <AppText variant="bodyMedium" style={styles.ctaText}>
+              {t.welcomeButton}
+            </AppText>
+            <Ionicons name="arrow-forward" size={18} color={Colors.white} />
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
-    </Screen>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: {
     flex: 1,
-    justifyContent: 'space-between',
-    paddingTop: Spacing.xl,
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.xxl,
     paddingBottom: Spacing.xl,
+    justifyContent: 'space-between',
   },
-  topSection: {
-    alignItems: 'center',
-    gap: Spacing.xs,
-    marginTop: Spacing.md,
-  },
-  logoContainer: {
-    width: 90,
-    height: 90,
-    borderRadius: Radii.lg,
-    overflow: 'hidden',
-    marginBottom: Spacing.base,
-    backgroundColor: Colors.white,
+  header: { gap: Spacing.base, alignItems: 'flex-start' },
+  logoGradient: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.border,
+    marginBottom: Spacing.xs,
     ...Shadows.md,
   },
-  logoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  headline: {
-    fontSize: 32,
+  logoEmoji: { fontSize: 26 },
+  title: {
     fontWeight: '800',
+    letterSpacing: -0.5,
+    lineHeight: 40,
     color: Colors.charcoal,
-    letterSpacing: -1,
   },
-  sub: {
-    paddingHorizontal: Spacing.md,
-    marginTop: Spacing.xs,
-    lineHeight: 20,
-  },
-  features: {
-    gap: Spacing.md,
-    marginVertical: Spacing.lg,
-  },
-  featureRow: {
+  subtitle: { color: Colors.charcoalSoft, lineHeight: 22 },
+  textRight: { textAlign: 'right', writingDirection: 'rtl' },
+
+  features: { gap: Spacing.sm },
+  featureCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    gap: Spacing.md,
     padding: Spacing.md,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
-    gap: Spacing.md,
     ...Shadows.sm,
   },
-  featureEmojiContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.blueLight,
+  featureIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: Radii.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  featureEmoji: {
-    fontSize: 20,
+  featureText: { flex: 1, gap: 2 },
+  featureTitle: { fontWeight: '700', color: Colors.charcoal },
+
+  ctaWrapper: { borderRadius: Radii.xl, overflow: 'hidden', ...Shadows.md },
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
   },
-  featureTextContainer: {
-    flex: 1,
-    gap: 2,
-  },
-  featureTitle: {
-    fontWeight: '700',
-    color: Colors.charcoal,
-  },
-  featureDesc: {
-    lineHeight: 14,
-  },
-  footer: {
-    paddingBottom: Spacing.md,
-  },
+  ctaText: { color: Colors.white, fontWeight: '700', fontSize: 17 },
 });
