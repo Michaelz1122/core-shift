@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { AppState, AppActions, Language, Struggle, Goal } from '@/types';
+import type { AppState, AppActions, Language, Struggle, Goal, Action } from '@/types';
 import { generatePlan } from '@/utils/planEngine';
 
 export const getLocalDateStr = (date: Date = new Date()) => {
@@ -47,32 +47,47 @@ export const useStore = create<Store>()(
   persist(
     (set, get) => ({
       // ── State ──────────────────────────────────
+      _hasHydrated: false,
       onboarded: false,
       language: 'en',
       struggle: null,
-      goal: null,
+      goals: [],
+
+      // Plan
       actions: [],
+
+      // Progress
       xp: 0,
       level: 1,
       streak: 0,
       lastActiveDate: null,
       history: {},
+      lastOverloadPrompt: null,
+
+      // Settings
       darkMode: false,
-      remindersEnabled: false,
+      remindersEnabled: true,
+
+      setHydrated: (h: boolean) => set({ _hasHydrated: h }),
 
       // ── Onboarding ─────────────────────────────
       setLanguage: (lang: Language) => set({ language: lang }),
 
       setStruggle: (s: Struggle) => set({ struggle: s }),
 
-      setGoal: (g: Goal) => set({ goal: g }),
+      toggleGoal: (g: Goal) => set((state) => {
+        const hasGoal = state.goals.includes(g);
+        if (hasGoal) {
+          return { goals: state.goals.filter((goal) => goal !== g) };
+        } else {
+          return { goals: [...state.goals, g] };
+        }
+      }),
 
-      completeOnboarding: () => {
-        const { struggle, goal } = get();
-        const actions = generatePlan(struggle, goal);
+      completeOnboarding: (customActions: Action[]) => {
         set({
           onboarded: true,
-          actions,
+          actions: customActions,
           lastActiveDate: getLocalDateStr(),
           streak: 0,
         });
@@ -112,8 +127,8 @@ export const useStore = create<Store>()(
       },
 
       regeneratePlan: () => {
-        const { struggle, goal } = get();
-        const actions = generatePlan(struggle, goal);
+        const { struggle, goals } = get();
+        const actions = generatePlan(struggle, goals[0] || 'work');
         set({ actions });
       },
 
@@ -141,6 +156,8 @@ export const useStore = create<Store>()(
         });
       },
 
+      setOverloadPrompt: (streak: number) => set({ lastOverloadPrompt: streak }),
+
       // ── Settings ───────────────────────────────
       toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
 
@@ -151,20 +168,26 @@ export const useStore = create<Store>()(
           onboarded: false,
           language: 'en',
           struggle: null,
-          goal: null,
+          goals: [],
           actions: [],
           xp: 0,
           level: 1,
           streak: 0,
           lastActiveDate: null,
           history: {},
+          lastOverloadPrompt: null,
           darkMode: false,
-          remindersEnabled: false,
+          remindersEnabled: true,
         }),
     }),
     {
       name: 'coreshift-store',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.setHydrated(true);
+        }
+      },
     }
   )
 );

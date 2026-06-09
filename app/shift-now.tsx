@@ -1,18 +1,21 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '@/store/useStore';
 import { strings } from '@/constants/strings';
 import { Colors, Spacing, Radii, Font } from '@/constants/theme';
 import type { Feeling } from '@/types';
 
-const FEELINGS: { id: Feeling; emoji: string }[] = [
-  { id: 'distracted', emoji: '😵‍💫' },
-  { id: 'no_energy', emoji: '😴' },
-  { id: 'urge', emoji: '🔥' },
-  { id: 'stressed', emoji: '😰' },
+const { height } = Dimensions.get('window');
+
+const FEELING_OPTIONS: { id: Feeling; icon: keyof typeof Ionicons.glyphMap; bg: string }[] = [
+  { id: 'distracted', icon: 'shuffle-outline', bg: '#D8E2FF' },
+  { id: 'no_energy', icon: 'battery-dead-outline', bg: '#DCE2F3' },
+  { id: 'urge', icon: 'flame-outline', bg: '#FFDAD6' },
+  { id: 'stressed', icon: 'warning-outline', bg: '#FFDBC9' },
 ];
 
 export default function ShiftNow() {
@@ -25,9 +28,10 @@ export default function ShiftNow() {
   const cardBg = darkMode ? Colors.cardDark : Colors.card;
   const borderColor = darkMode ? Colors.borderDark : Colors.border;
   const textColor = darkMode ? Colors.textDark : Colors.text;
+  const textMuted = darkMode ? Colors.mutedDark : Colors.muted;
 
   const handleSelect = (f: Feeling) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelected(f);
   };
 
@@ -38,131 +42,284 @@ export default function ShiftNow() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: bg }]}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
-            <Text style={[styles.closeText, { color: Colors.muted }]}>✕</Text>
+    <View style={styles.overlayContainer}>
+      {/* Semi-transparent backdrop tap to close */}
+      <TouchableOpacity
+        style={styles.backdrop}
+        activeOpacity={1}
+        onPress={() => router.back()}
+      />
+
+      {/* Bottom Sheet Sheet Panel */}
+      <SafeAreaView style={[styles.bottomSheet, { backgroundColor: bg, borderTopColor: borderColor }]}>
+        {/* Drag handle decoration */}
+        <View style={[styles.dragHandle, { backgroundColor: borderColor }]} />
+
+        {/* Header with Close Button */}
+        <View style={[styles.headerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <Text style={[styles.sheetTitle, { color: textColor }]}>
+            {selected ? t.feelings[selected].title : t.shiftNow}
+          </Text>
+          <TouchableOpacity
+            style={[styles.closeBtn, { backgroundColor: borderColor }]}
+            onPress={() => router.back()}
+          >
+            <Text style={[styles.closeText, { color: textColor }]}>✕</Text>
           </TouchableOpacity>
         </View>
 
         {!selected ? (
-          <>
-            <Text style={[styles.title, { color: textColor, textAlign: isRTL ? 'right' : 'left' }]}>
-              {t.shiftTitle}
-            </Text>
-            <View style={styles.grid}>
-              {FEELINGS.map((f) => (
-                <TouchableOpacity
-                  key={f.id}
-                  style={[styles.feelingCard, { backgroundColor: cardBg, borderColor }]}
-                  onPress={() => handleSelect(f.id)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.feelingEmoji}>{f.emoji}</Text>
-                  <Text style={[styles.feelingLabel, { color: textColor }]}>
-                    {t.feelings[f.id]}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+          <View style={styles.contentContainer}>
+            {/* Title & Subtitle */}
+            <View style={styles.textSection}>
+              <Text style={[styles.mainQuestion, { color: textColor, textAlign: isRTL ? 'right' : 'left' }]}>
+                {t.shiftTitle}
+              </Text>
+              <Text style={[styles.subQuestion, { color: textMuted, textAlign: isRTL ? 'right' : 'left' }]}>
+                {t.shiftSub}
+              </Text>
             </View>
-          </>
+
+            {/* Feelings Selection Grid */}
+            <View style={[styles.grid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              {FEELING_OPTIONS.map((opt) => {
+                const feelStrings = t.feelings[opt.id];
+                return (
+                  <TouchableOpacity
+                    key={opt.id}
+                    style={[styles.feelingCard, { backgroundColor: cardBg, borderColor }]}
+                    onPress={() => handleSelect(opt.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.cardRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                      <View style={[styles.emojiCircle, { backgroundColor: opt.bg }]}>
+                        <Ionicons name={opt.icon} size={24} color={Colors.primary} />
+                      </View>
+                      <View style={styles.textColumn}>
+                        <Text style={[styles.cardTitle, { color: textColor, textAlign: isRTL ? 'right' : 'left' }]}>
+                          {feelStrings.title}
+                        </Text>
+                        <Text style={[styles.cardActionLabel, { color: Colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
+                          {feelStrings.action}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
         ) : (
           <View style={styles.tipContainer}>
-            <Text style={styles.tipEmoji}>
-              {FEELINGS.find((f) => f.id === selected)?.emoji}
-            </Text>
-            <Text style={[styles.tipTitle, { color: textColor }]}>
-              {t.feelings[selected]}
-            </Text>
+            {/* Selected state details */}
+            <View style={styles.centerIconArea}>
+              <View style={[styles.largeEmojiCircle, { backgroundColor: Colors.primaryLight }]}>
+                <Ionicons
+                  name={FEELING_OPTIONS.find((f) => f.id === selected)?.icon as keyof typeof Ionicons.glyphMap}
+                  size={48}
+                  color={Colors.primary}
+                />
+              </View>
+              <Text style={[styles.selectedTitleText, { color: textColor }]}>
+                {t.feelings[selected].title}
+              </Text>
+            </View>
+
+            {/* Tip Card */}
             <View style={[styles.tipCard, { backgroundColor: cardBg, borderColor }]}>
               <Text style={[styles.tipText, { color: textColor, textAlign: isRTL ? 'right' : 'left' }]}>
                 {t.shiftTip[selected]}
               </Text>
             </View>
-            <TouchableOpacity style={styles.doneBtn} onPress={handleDone} activeOpacity={0.8}>
-              <Text style={styles.doneBtnText}>{t.shiftDone}</Text>
-            </TouchableOpacity>
-            <Text style={[styles.xpNote, { color: Colors.muted }]}>+5 XP</Text>
+
+            {/* Done Action */}
+            <View style={styles.doneBtnSection}>
+              <TouchableOpacity style={styles.doneBtn} onPress={handleDone} activeOpacity={0.8}>
+                <Text style={styles.doneBtnText}>{t.shiftDone}</Text>
+              </TouchableOpacity>
+              <Text style={[styles.xpTextNote, { color: textMuted }]}>+5 {t.xp}</Text>
+            </View>
           </View>
         )}
-      </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  scroll: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xxxl,
-  },
-  header: {
-    flexDirection: 'row',
+  overlayContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
     justifyContent: 'flex-end',
-    marginBottom: Spacing.xl,
   },
-  closeBtn: { padding: Spacing.sm },
-  closeText: { fontSize: 20 },
-
-  title: {
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  bottomSheet: {
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderTopWidth: 1.5,
+    paddingTop: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.xxl,
+    maxHeight: height * 0.85,
+    minHeight: 400,
+  },
+  dragHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: Spacing.md,
+  },
+  headerRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  sheetTitle: {
     fontFamily: Font.bold,
-    fontSize: 24,
-    letterSpacing: -0.3,
-    marginBottom: Spacing.xl,
+    fontSize: 18,
   },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeText: {
+    fontSize: 12,
+    fontFamily: Font.bold,
+  },
+
+  contentContainer: {
+    gap: Spacing.xl,
+  },
+  textSection: {
+    gap: 4,
+  },
+  mainQuestion: {
+    fontFamily: Font.bold,
+    fontSize: 22,
+    letterSpacing: -0.5,
+  },
+  subQuestion: {
+    fontFamily: Font.medium,
+    fontSize: 14,
+  },
+
+  /* Grid Options */
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   feelingCard: {
-    width: '48%',
-    alignItems: 'center',
-    padding: Spacing.xl,
-    borderRadius: Radii.lg,
+    width: '47%',
+    borderRadius: 20,
     borderWidth: 1.5,
-    gap: Spacing.sm,
+    padding: Spacing.md,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
-  feelingEmoji: { fontSize: 36 },
-  feelingLabel: {
+  cardRow: {
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  emojiCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardEmoji: {
+    fontSize: 20,
+  },
+  textColumn: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontFamily: Font.bold,
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  cardActionLabel: {
     fontFamily: Font.semibold,
-    fontSize: 15,
+    fontSize: 11,
   },
 
-  tipContainer: { alignItems: 'center', gap: Spacing.lg },
-  tipEmoji: { fontSize: 56 },
-  tipTitle: {
+  /* Tip Screen */
+  tipContainer: {
+    alignItems: 'center',
+    gap: Spacing.xl,
+    paddingTop: Spacing.md,
+  },
+  centerIconArea: {
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  largeEmojiCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  largeEmoji: {
+    fontSize: 40,
+  },
+  selectedTitleText: {
     fontFamily: Font.bold,
-    fontSize: 22,
+    fontSize: 20,
   },
   tipCard: {
     width: '100%',
-    padding: Spacing.xl,
-    borderRadius: Radii.lg,
-    borderWidth: 1,
+    borderWidth: 1.5,
+    borderRadius: 20,
+    padding: Spacing.lg,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
   tipText: {
-    fontFamily: Font.regular,
-    fontSize: 16,
-    lineHeight: 26,
+    fontFamily: Font.medium,
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  doneBtnSection: {
+    width: '100%',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   doneBtn: {
+    width: '100%',
+    height: 52,
+    borderRadius: 26,
     backgroundColor: Colors.success,
-    borderRadius: Radii.lg,
-    paddingVertical: Spacing.base,
-    paddingHorizontal: Spacing.xxxl,
-    marginTop: Spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: Colors.success,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
   doneBtnText: {
+    color: '#FFFFFF',
     fontFamily: Font.bold,
     fontSize: 16,
-    color: Colors.white,
   },
-  xpNote: {
-    fontFamily: Font.medium,
-    fontSize: 13,
+  xpTextNote: {
+    fontFamily: Font.bold,
+    fontSize: 12,
   },
 });

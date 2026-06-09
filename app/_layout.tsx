@@ -15,6 +15,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const darkMode = useStore((s) => s.darkMode);
+  const _hasHydrated = useStore((s) => s._hasHydrated);
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -24,12 +25,12 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded) {
+    if (fontsLoaded && _hasHydrated) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, _hasHydrated]);
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded || !_hasHydrated) return null;
 
   return (
     <>

@@ -1,21 +1,54 @@
-import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, LayoutAnimation, UIManager, Platform, Alert } from 'react-native';
 import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '@/store/useStore';
 import { strings } from '@/constants/strings';
 import { Colors, Spacing, Radii, Font } from '@/constants/theme';
 
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 export default function Today() {
   const {
-    language, actions, xp, streak,
-    toggleAction, checkNewDay, darkMode,
+    language, actions, xp, streak, level,
+    toggleAction, checkNewDay, darkMode, history,
+    lastOverloadPrompt, setOverloadPrompt
   } = useStore();
+  const insets = useSafeAreaInsets();
   const t = strings[language];
   const isRTL = language === 'ar';
 
-  useEffect(() => { checkNewDay(); }, []);
+  useEffect(() => {
+    checkNewDay();
+  }, []);
+
+  useEffect(() => {
+    // Progressive Overload Logic
+    if (streak > 0 && streak % 7 === 0 && lastOverloadPrompt !== streak) {
+      setTimeout(() => {
+        Alert.alert(
+          isRTL ? 'عاش يا بطل! 🚀' : 'Level Up! 🚀',
+          isRTL 
+            ? `بقالك ${streak} أيام مستمر من غير ما تقطع. إيه رأيك نعلي الليفل ونضيف مهمة جديدة عشان التحدي يكبر؟`
+            : `You've been consistent for ${streak} days. Ready to level up and add a new task?`,
+          [
+            { text: isRTL ? 'لأ، مش دلوقتي' : 'Not now', style: 'cancel', onPress: () => setOverloadPrompt(streak) },
+            { 
+              text: isRTL ? 'يلا بينا!' : 'Let\'s do it!', 
+              onPress: () => {
+                setOverloadPrompt(streak);
+                router.push('/onboarding'); // or any edit screen
+              } 
+            }
+          ]
+        );
+      }, 1000); // slight delay so it doesn't pop up instantly before UI mounts
+    }
+  }, [streak, lastOverloadPrompt]);
 
   const completedCount = actions.filter((a) => a.completed).length;
   const total = actions.length;
@@ -25,13 +58,19 @@ export default function Today() {
   const cardBg = darkMode ? Colors.cardDark : Colors.card;
   const borderColor = darkMode ? Colors.borderDark : Colors.border;
   const textColor = darkMode ? Colors.textDark : Colors.text;
+  const textMuted = darkMode ? Colors.mutedDark : Colors.muted;
 
   const handleToggle = (id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     toggleAction(id);
   };
 
-  // Greeting based on time
+  // Level progress variables
+  const levelProgress = (xp % 100) / 100;
+  const xpNeeded = 100 - (xp % 100);
+
+  // Time based greeting
   const hour = new Date().getHours();
   const greetingEn = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const greetingAr = hour < 12 ? 'صباح الخير' : hour < 17 ? 'مساء الخير' : 'مساء الخير';
@@ -39,111 +78,225 @@ export default function Today() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: bg }]}>
+      {/* TopAppBar */}
+      <View style={[styles.topAppBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={styles.topBtnPlaceholder} />
+        <Text style={[styles.appTitle, { color: textColor }]}>CoreShift</Text>
+        <TouchableOpacity
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/settings');
+          }}
+          style={[styles.profileAvatar, { backgroundColor: Colors.primaryLight }]}
+        >
+          <Ionicons name="person" size={20} color={Colors.primary} />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.headerSection}>
-          <Text style={[styles.greeting, { color: Colors.muted, textAlign: isRTL ? 'right' : 'left' }]}>
+        {/* Greeting Section */}
+        <View style={styles.greetingSection}>
+          <Text style={[styles.greetingText, { color: textMuted, textAlign: isRTL ? 'right' : 'left' }]}>
             {greeting}
           </Text>
-          <View style={[styles.streakRow, isRTL && { flexDirection: 'row-reverse' }]}>
-            <Text style={[styles.streakText, { color: textColor }]}>
-              🔥 {streak} {t.days}
-            </Text>
-            <Text style={[styles.xpText, { color: Colors.muted }]}>
-              {xp} XP
+        </View>
+
+        {/* Daily Execution Stats Card */}
+        <View style={[styles.executionCard, { backgroundColor: cardBg, borderColor }]}>
+          <View style={[styles.executionHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={styles.flexOne}>
+              <Text style={[styles.executionTitle, { color: textColor, textAlign: isRTL ? 'right' : 'left' }]}>
+                {t.dailyExecution}
+              </Text>
+              <Text style={[styles.executionSubtitle, { color: Colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
+                {isRTL ? `${t.scholar} مستوى ${level}` : `Level ${level} ${t.scholar}`}
+              </Text>
+            </View>
+            <View style={styles.xpBox}>
+              <Text style={[styles.bigXpValue, { color: textColor }]}>{xp}</Text>
+              <Text style={[styles.xpLabel, { color: textMuted }]}>{t.xpToday}</Text>
+            </View>
+          </View>
+
+          {/* Level Progress Bar */}
+          <View style={[styles.levelProgressTrack, { backgroundColor: borderColor }]}>
+            <View
+              style={[
+                styles.levelProgressFill,
+                {
+                  width: `${levelProgress * 100}%`,
+                  left: isRTL ? undefined : 0,
+                  right: isRTL ? 0 : undefined,
+                },
+              ]}
+            />
+          </View>
+
+          <View style={[styles.levelLabelsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Text style={[styles.levelLabelText, { color: textMuted }]}>0</Text>
+            <Text style={[styles.levelLabelText, { color: textMuted }]}>
+              {isRTL ? `${xpNeeded} ${t.nextLevel}` : `${xpNeeded} XP ${t.nextLevel}`}
             </Text>
           </View>
         </View>
 
-        {/* Section title + progress */}
+        {/* Focus Modules Section Header */}
         <Text style={[styles.sectionTitle, { color: textColor, textAlign: isRTL ? 'right' : 'left' }]}>
           {t.todayTitle}
         </Text>
 
-        <View style={[styles.progressTrack, { backgroundColor: borderColor }]}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: total > 0 ? `${(completedCount / total) * 100}%` : '0%' },
-              allDone && { backgroundColor: Colors.success },
-            ]}
-          />
-        </View>
-        <Text style={[styles.progressText, { color: Colors.muted, textAlign: isRTL ? 'right' : 'left' }]}>
-          {completedCount} / {total} {t.completed}
-        </Text>
+        {/* Actions List */}
+        <View style={styles.actionsList}>
+          {actions.map((action) => {
+            const titleText = isRTL ? action.titleAr : action.title;
+            const descText = isRTL ? action.descriptionAr : action.description;
 
-        {/* Celebration banner when all done */}
+            return (
+              <TouchableOpacity
+                key={action.id}
+                style={[
+                  styles.actionCard,
+                  {
+                    backgroundColor: action.completed ? (darkMode ? '#1E293B' : '#F2F3FE') : cardBg,
+                    borderColor: action.completed ? Colors.primary : borderColor,
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+                onPress={() => handleToggle(action.id)}
+                activeOpacity={0.7}
+              >
+                {/* Left check circle */}
+                <View
+                  style={[
+                    styles.checkbox,
+                    action.completed && {
+                      backgroundColor: Colors.primary,
+                      borderColor: Colors.primary,
+                    },
+                  ]}
+                >
+                  {action.completed && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+                </View>
+
+                {/* Icon box */}
+                <View style={[styles.actionIconBox, { backgroundColor: action.completed ? 'transparent' : Colors.primaryLight }]}>
+                  <Ionicons name={action.icon as keyof typeof Ionicons.glyphMap} size={20} color={action.completed ? textMuted : Colors.primary} />
+                </View>
+
+                {/* Center details */}
+                <View style={styles.flexOne}>
+                  <Text
+                    style={[
+                      styles.actionTitle,
+                      { color: textColor },
+                      action.completed && styles.actionDoneText,
+                      { textAlign: isRTL ? 'right' : 'left' },
+                    ]}
+                  >
+                    {titleText}
+                  </Text>
+                  {descText && (
+                    <Text
+                      style={[
+                        styles.actionDesc,
+                        { color: textMuted },
+                        action.completed && styles.actionDoneText,
+                        { textAlign: isRTL ? 'right' : 'left' },
+                      ]}
+                    >
+                      {descText}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Right side: Duration Pill & Play Btn */}
+                <View style={[styles.rightActionsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={[styles.cardDurationPill, { backgroundColor: borderColor }]}>
+                    <Text style={[styles.cardDurationText, { color: textColor }]}>
+                      {action.duration || '5m'}
+                    </Text>
+                  </View>
+                  {!action.completed && (
+                    <TouchableOpacity
+                      style={[styles.playBtnSmall, { backgroundColor: Colors.primaryLight }]}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push({ pathname: '/focus', params: { id: action.id } });
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="play" size={14} color={Colors.primary} style={{ marginLeft: 2 }} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* All items completed celebration */}
         {allDone && (
-          <View style={styles.celebrationBanner}>
-            <Text style={styles.celebrationEmoji}>🎉</Text>
-            <Text style={[styles.celebrationText, { textAlign: isRTL ? 'right' : 'left' }]}>
-              {isRTL ? 'أحسنت! خلصت كل حاجة النهارده.' : 'All done! You showed up today.'}
-            </Text>
+          <View style={[styles.celebrationBanner, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Ionicons name="trophy" size={28} color="#15803D" />
+            <View style={styles.flexOne}>
+              <Text style={[styles.celebrationTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t.allDoneTitle}
+              </Text>
+              <Text style={[styles.celebrationSub, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t.allDoneSub}
+              </Text>
+            </View>
           </View>
         )}
-
-        {/* Actions */}
-        <View style={styles.actionsList}>
-          {actions.map((action) => (
-            <TouchableOpacity
-              key={action.id}
-              style={[
-                styles.actionCard,
-                {
-                  backgroundColor: action.completed ? Colors.primaryLight : cardBg,
-                  borderColor: action.completed ? Colors.primary : borderColor,
-                },
-              ]}
-              onPress={() => handleToggle(action.id)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.checkbox, action.completed && styles.checkboxDone]}>
-                {action.completed && <Text style={styles.checkIcon}>✓</Text>}
-              </View>
-              <Text
-                style={[
-                  styles.actionTitle,
-                  { color: action.completed ? Colors.primary : textColor },
-                  action.completed && styles.actionDone,
-                  { textAlign: isRTL ? 'right' : 'left' },
-                ]}
-              >
-                {language === 'ar' ? action.titleAr : action.title}
-              </Text>
-              <Text style={styles.actionEmoji}>{action.emoji}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
       </ScrollView>
 
-      {/* Bottom bar */}
-      <View style={[styles.bottomBar, { backgroundColor: bg, borderTopColor: borderColor }]}>
+      {/* Floating Action Button "Shift Now" */}
+      <TouchableOpacity
+        style={[styles.fab, isRTL ? { left: Spacing.xl } : { right: Spacing.xl }, { bottom: 84 + insets.bottom }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          router.push('/shift-now');
+        }}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="flash" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
+
+      {/* Bottom Navigation Bar */}
+      <View style={[styles.bottomBar, { backgroundColor: bg, borderTopColor: borderColor, paddingBottom: Math.max(insets.bottom, Spacing.xs), height: 72 + insets.bottom }]}>
         <TouchableOpacity
-          style={styles.shiftButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push('/shift-now');
-          }}
-          activeOpacity={0.8}
+          style={[styles.navTab, styles.navTabActive, { backgroundColor: darkMode ? '#1E293B' : '#ECEDF8' }]}
+          onPress={() => {}}
+          activeOpacity={0.7}
         >
-          <Text style={styles.shiftText}>🛡️ {t.shiftNow}</Text>
+          <Ionicons name="calendar" size={22} color={textColor} style={styles.navIcon} />
+          <Text style={[styles.navText, { color: textColor }]}>Today</Text>
         </TouchableOpacity>
 
-        <View style={styles.navRow}>
-          <TouchableOpacity onPress={() => router.push('/progress')} style={styles.navBtn}>
-            <Text style={styles.navEmoji}>📊</Text>
-            <Text style={[styles.navLabel, { color: Colors.muted }]}>
-              {isRTL ? 'التقدم' : 'Progress'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/settings')} style={styles.navBtn}>
-            <Text style={styles.navEmoji}>⚙️</Text>
-            <Text style={[styles.navLabel, { color: Colors.muted }]}>
-              {isRTL ? 'إعدادات' : 'Settings'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.navTab}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.replace('/progress');
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="stats-chart-outline" size={22} color={textMuted} style={styles.navIcon} />
+          <Text style={[styles.navText, { color: textMuted }]}>Progress</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.navTab}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.replace('/settings');
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="settings-outline" size={22} color={textMuted} style={styles.navIcon} />
+          <Text style={[styles.navText, { color: textMuted }]}>Settings</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -151,138 +304,255 @@ export default function Today() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  topAppBar: {
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl,
+  },
+  topBtnPlaceholder: {
+    width: 40,
+  },
+  appTitle: {
+    fontFamily: Font.bold,
+    fontSize: 20,
+    letterSpacing: -0.5,
+  },
+  profileAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileEmoji: {
+    fontSize: 18,
+  },
+
   scroll: {
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.md,
     paddingBottom: 160,
   },
 
-  headerSection: {
-    marginBottom: Spacing.xl,
-    gap: Spacing.xs,
+  greetingSection: {
+    marginBottom: Spacing.md,
   },
-  greeting: {
-    fontFamily: Font.medium,
-    fontSize: 14,
-  },
-  streakRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  streakText: {
-    fontFamily: Font.bold,
-    fontSize: 18,
-  },
-  xpText: {
-    fontFamily: Font.medium,
+  greetingText: {
+    fontFamily: Font.semibold,
     fontSize: 14,
   },
 
+  /* Daily Execution Card */
+  executionCard: {
+    borderWidth: 1.5,
+    borderRadius: 24,
+    padding: Spacing.lg,
+    marginBottom: Spacing.xl,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  executionHeader: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  flexOne: {
+    flex: 1,
+  },
+  executionTitle: {
+    fontFamily: Font.bold,
+    fontSize: 18,
+    marginBottom: 4,
+  },
+  executionSubtitle: {
+    fontFamily: Font.semibold,
+    fontSize: 13,
+  },
+  xpBox: {
+    alignItems: 'center',
+  },
+  bigXpValue: {
+    fontFamily: Font.bold,
+    fontSize: 28,
+    lineHeight: 32,
+  },
+  xpLabel: {
+    fontFamily: Font.medium,
+    fontSize: 11,
+  },
+  levelProgressTrack: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  levelProgressFill: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    backgroundColor: Colors.primary,
+    borderRadius: 4,
+  },
+  levelLabelsRow: {
+    justifyContent: 'space-between',
+  },
+  levelLabelText: {
+    fontFamily: Font.medium,
+    fontSize: 11,
+  },
+
+  /* Focus Modules */
   sectionTitle: {
     fontFamily: Font.bold,
-    fontSize: 22,
+    fontSize: 18,
     letterSpacing: -0.3,
     marginBottom: Spacing.md,
   },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: Spacing.xs,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: 3,
-  },
-  progressText: {
-    fontFamily: Font.medium,
-    fontSize: 13,
-    marginBottom: Spacing.lg,
-  },
-
-  celebrationBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  actionsList: {
     gap: Spacing.md,
-    backgroundColor: '#E8F5E9',
-    padding: Spacing.base,
-    borderRadius: Radii.lg,
-    marginBottom: Spacing.lg,
   },
-  celebrationEmoji: { fontSize: 28 },
-  celebrationText: {
-    flex: 1,
-    fontFamily: Font.semibold,
-    fontSize: 15,
-    color: '#2E7D32',
-    lineHeight: 20,
-  },
-
-  actionsList: { gap: Spacing.sm },
   actionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.base,
-    borderRadius: Radii.lg,
     borderWidth: 1.5,
+    borderRadius: 16,
+    padding: Spacing.md,
+    alignItems: 'center',
     gap: Spacing.md,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
   checkbox: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: Colors.muted,
-    alignItems: 'center',
+    borderColor: '#9DA3AE',
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  checkboxDone: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+  checkIcon: {
+    color: '#FFFFFF',
+    fontFamily: Font.bold,
+    fontSize: 13,
   },
-  checkIcon: { color: Colors.white, fontSize: 14, fontFamily: Font.bold },
+  actionIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   actionTitle: {
-    flex: 1,
-    fontFamily: Font.semibold,
+    fontFamily: Font.bold,
     fontSize: 15,
-    lineHeight: 20,
+    marginBottom: 2,
   },
-  actionDone: { textDecorationLine: 'line-through' },
-  actionEmoji: { fontSize: 20 },
+  actionDesc: {
+    fontFamily: Font.regular,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  actionDoneText: {
+    textDecorationLine: 'line-through',
+    opacity: 0.5,
+  },
+  rightActionsRow: {
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  cardDurationPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  cardDurationText: {
+    fontFamily: Font.semibold,
+    fontSize: 11,
+  },
+  playBtnSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  /* Celebration */
+  celebrationBanner: {
+    backgroundColor: '#E6F6EC',
+    borderRadius: 16,
+    padding: Spacing.md,
+    gap: Spacing.md,
+    alignItems: 'center',
+    marginTop: Spacing.xl,
+  },
+  celebrationEmoji: {
+    fontSize: 28,
+  },
+  celebrationTitle: {
+    fontFamily: Font.bold,
+    fontSize: 15,
+    color: '#15803D',
+  },
+  celebrationSub: {
+    fontFamily: Font.medium,
+    fontSize: 12,
+    color: '#166534',
+    marginTop: 2,
+  },
+
+  /* Floating Action Button */
+  fab: {
+    position: 'absolute',
+    bottom: 84,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+  },
+  fabIcon: {
+    fontSize: 24,
+    color: '#FFFFFF',
+  },
 
   bottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xxl,
-    borderTopWidth: 1,
-    gap: Spacing.md,
-  },
-  shiftButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radii.lg,
-    paddingVertical: Spacing.base,
-    alignItems: 'center',
-  },
-  shiftText: {
-    fontFamily: Font.bold,
-    fontSize: 16,
-    color: Colors.white,
-  },
-  navRow: {
+    borderTopWidth: 1.5,
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: Spacing.xxxl,
+    alignItems: 'center',
+    justifyContent: 'space-around',
   },
-  navBtn: { alignItems: 'center', gap: 2, padding: Spacing.xs },
-  navEmoji: { fontSize: 20 },
-  navLabel: {
-    fontFamily: Font.medium,
+  navTab: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: 20,
+    minWidth: 70,
+  },
+  navTabActive: {},
+  navIcon: {
+    fontSize: 18,
+    marginBottom: 2,
+  },
+  navText: {
+    fontFamily: Font.bold,
     fontSize: 11,
   },
 });

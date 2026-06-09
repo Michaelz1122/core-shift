@@ -8,18 +8,23 @@ export type Feeling = 'distracted' | 'no_energy' | 'urge' | 'stressed';
 
 export interface Action {
   id: string;
-  emoji: string;
+  icon: string;
   title: string;
   titleAr: string;
+  description?: string;
+  descriptionAr?: string;
+  duration?: string;
   completed: boolean;
 }
 
 export interface AppState {
+  _hasHydrated: boolean;
+
   // Onboarding
   onboarded: boolean;
   language: Language;
   struggle: Struggle | null;
-  goal: Goal | null;
+  goals: Goal[];
 
   // Plan
   actions: Action[];
@@ -30,6 +35,7 @@ export interface AppState {
   streak: number;
   lastActiveDate: string | null;
   history: Record<string, boolean>; // dateStr -> allCompleted
+  lastOverloadPrompt: number | null;
 
   // Settings
   darkMode: boolean;
@@ -37,11 +43,13 @@ export interface AppState {
 }
 
 export interface AppActions {
+  setHydrated: (h: boolean) => void;
+
   // Onboarding
   setLanguage: (lang: Language) => void;
   setStruggle: (s: Struggle) => void;
-  setGoal: (g: Goal) => void;
-  completeOnboarding: () => void;
+  toggleGoal: (g: Goal) => void;
+  completeOnboarding: (customActions: Action[]) => void;
 
   // Actions
   toggleAction: (id: string) => void;
@@ -50,6 +58,7 @@ export interface AppActions {
   // Progress
   addXp: (amount: number) => void;
   checkNewDay: () => void;
+  setOverloadPrompt: (streak: number) => void;
 
   // Settings
   toggleDarkMode: () => void;

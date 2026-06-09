@@ -1,13 +1,18 @@
 import { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '@/store/useStore';
 import { strings } from '@/constants/strings';
 import { Colors, Spacing, Radii, Font } from '@/constants/theme';
 
+const { width } = Dimensions.get('window');
+
 export default function Progress() {
-  const { language, xp, level, streak, history, actions, darkMode } = useStore();
+  const { language, xp, streak, history, actions, darkMode } = useStore();
+  const insets = useSafeAreaInsets();
   const t = strings[language];
   const isRTL = language === 'ar';
 
@@ -15,6 +20,7 @@ export default function Progress() {
   const cardBg = darkMode ? Colors.cardDark : Colors.card;
   const borderColor = darkMode ? Colors.borderDark : Colors.border;
   const textColor = darkMode ? Colors.textDark : Colors.text;
+  const textMuted = darkMode ? Colors.mutedDark : Colors.muted;
 
   // 14-day rolling data
   const rollingData = useMemo(() => {
@@ -24,9 +30,10 @@ export default function Progress() {
       const d = new Date();
       d.setDate(today.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
-      const dayNames = isRTL
-        ? ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت']
-        : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+      const dayNamesEn = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+      const dayNamesAr = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'];
+      const dayNames = isRTL ? dayNamesAr : dayNamesEn;
+
       data.push({
         day: d.getDate(),
         weekday: dayNames[d.getDay()],
@@ -42,180 +49,355 @@ export default function Progress() {
   const daysCompleted = Object.values(history).filter(Boolean).length;
   const overallRate = totalTracked > 0 ? Math.round((daysCompleted / totalTracked) * 100) : 0;
 
-  // Today
-  const completedToday = actions.filter((a) => a.completed).length;
-  const total = actions.length;
-
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: bg }]}>
+      {/* TopAppBar */}
+      <View style={[styles.topAppBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={styles.topBtnPlaceholder} />
+        <Text style={[styles.appTitle, { color: textColor }]}>CoreShift</Text>
+        <TouchableOpacity
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/settings');
+          }}
+          style={[styles.profileAvatar, { backgroundColor: Colors.primaryLight }]}
+        >
+          <Ionicons name="person" size={20} color={Colors.primary} />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={[styles.backText, { color: textColor }]}>←</Text>
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: textColor }]}>{t.progressTitle}</Text>
-          <View style={styles.backBtn} />
+        {/* Screen Title */}
+        <View style={styles.titleSection}>
+          <Text style={[styles.screenTitle, { color: textColor, textAlign: isRTL ? 'right' : 'left' }]}>
+            {t.progressTitle}
+          </Text>
+          <Text style={[styles.screenSub, { color: textMuted, textAlign: isRTL ? 'right' : 'left' }]}>
+            {t.progressSub}
+          </Text>
         </View>
 
-        {/* Stats row: streak + XP */}
-        <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: cardBg, borderColor }]}>
-            <Text style={styles.statEmoji}>🔥</Text>
-            <Text style={[styles.statValue, { color: textColor }]}>{streak}</Text>
-            <Text style={[styles.statUnit, { color: Colors.muted }]}>
-              {t.currentStreak}
+        {/* Stats Bento Grid */}
+        <View style={styles.bentoContainer}>
+          {/* Card 1: Completion (Circular Ring) */}
+          <View style={[styles.bentoCardLarge, { backgroundColor: cardBg, borderColor }]}>
+            <Text style={[styles.bentoLabel, { color: textMuted }]}>{t.completionRate}</Text>
+            <View style={styles.circularContainer}>
+              <View style={[styles.progressRingOuter, { borderColor: borderColor }]}>
+                {/* Simulated inner content */}
+                <Text style={[styles.circularRateText, { color: textColor }]}>{overallRate}%</Text>
+              </View>
+            </View>
+            <Text style={[styles.bentoSubText, { color: textMuted }]}>
+              {isRTL ? `${daysCompleted} من أصل ${totalTracked} أيام` : `${daysCompleted} of ${totalTracked} days`}
             </Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: cardBg, borderColor }]}>
-            <Text style={styles.statEmoji}>⚡</Text>
-            <Text style={[styles.statValue, { color: textColor }]}>{xp}</Text>
-            <Text style={[styles.statUnit, { color: Colors.muted }]}>
-              {t.totalXp}
-            </Text>
-          </View>
-        </View>
 
-        {/* Today's actions */}
-        <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
-          <View style={styles.cardHeader}>
-            <Text style={[styles.cardLabel, { color: Colors.muted }]}>
-              {isRTL ? 'النهارده' : 'Today'}
-            </Text>
-            <Text style={[styles.cardRight, { color: Colors.primary }]}>
-              {completedToday}/{total}
-            </Text>
-          </View>
-          <View style={[styles.progressTrack, { backgroundColor: borderColor }]}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: total > 0 ? `${(completedToday / total) * 100}%` : '0%' },
-                total > 0 && completedToday === total && { backgroundColor: Colors.success },
-              ]}
-            />
-          </View>
-        </View>
+          {/* Cards 2 & 3 Right Column */}
+          <View style={styles.bentoColumn}>
+            {/* Card 2: Day Streak */}
+            <View style={[styles.bentoCardSmall, { backgroundColor: cardBg, borderColor }]}>
+              <View style={[styles.bentoHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Text style={[styles.bentoLabel, { color: textMuted }]}>{t.currentStreak}</Text>
+                <Ionicons name="flame" size={20} color="#EA580C" />
+              </View>
+              <Text style={[styles.bentoValue, { color: textColor, textAlign: isRTL ? 'right' : 'left' }]}>
+                {streak}
+              </Text>
+            </View>
 
-        {/* Overall completion rate */}
-        <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
-          <View style={styles.cardHeader}>
-            <Text style={[styles.cardLabel, { color: Colors.muted }]}>{t.completionRate}</Text>
-            <Text style={[styles.cardRight, { color: textColor }]}>
-              {daysCompleted}/{totalTracked} {t.days}
-            </Text>
-          </View>
-          <Text style={[styles.bigNumber, { color: Colors.primary }]}>{overallRate}%</Text>
-          <View style={[styles.progressTrack, { backgroundColor: borderColor }]}>
-            <View style={[styles.progressFill, { width: `${overallRate}%` }]} />
+            {/* Card 3: Total XP */}
+            <View style={[styles.bentoCardSmall, { backgroundColor: cardBg, borderColor }]}>
+              <View style={[styles.bentoHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Text style={[styles.bentoLabel, { color: textMuted }]}>{t.totalXp}</Text>
+                <Ionicons name="star" size={20} color="#EAB308" />
+              </View>
+              <Text style={[styles.bentoValue, { color: textColor, textAlign: isRTL ? 'right' : 'left' }]}>
+                {xp}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* 14-day timeline */}
-        <Text style={[styles.sectionTitle, { color: textColor, textAlign: isRTL ? 'right' : 'left' }]}>
-          {t.last14}
-        </Text>
-        <View style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
-          <View style={styles.timeline}>
+        {/* 14-Day Timeline Section */}
+        <View style={styles.timelineSection}>
+          <Text style={[styles.sectionTitle, { color: textColor, textAlign: isRTL ? 'right' : 'left' }]}>
+            {t.recentActivity}
+          </Text>
+          <Text style={[styles.sectionSubtitle, { color: textMuted, textAlign: isRTL ? 'right' : 'left' }]}>
+            {t.last14}
+          </Text>
+
+          {/* Horizontally scrollable timeline list */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.timelineScroll, isRTL && { flexDirection: 'row-reverse' }]}
+          >
             {rollingData.map((d, i) => (
-              <View key={i} style={styles.timelineDay}>
-                <View
-                  style={[
-                    styles.dot,
-                    {
-                      backgroundColor: d.completed ? Colors.success : borderColor,
-                      borderWidth: d.isToday ? 2 : 0,
-                      borderColor: d.isToday ? Colors.primary : 'transparent',
-                    },
-                  ]}
-                />
-                <Text style={[styles.dayLabel, { color: d.isToday ? Colors.primary : Colors.muted }]}>
+              <View
+                key={i}
+                style={[
+                  styles.timelinePill,
+                  { backgroundColor: cardBg, borderColor },
+                  d.isToday && { borderColor: Colors.primary, borderWidth: 2, backgroundColor: darkMode ? '#1E293B' : '#F2F3FE' },
+                ]}
+              >
+                <Text style={[styles.timelineWeekday, { color: d.isToday ? Colors.primary : textMuted }]}>
+                  {d.weekday}
+                </Text>
+                <Text style={[styles.timelineDayNum, { color: textColor }]}>
                   {d.day}
                 </Text>
+                <View
+                  style={[
+                    styles.timelineStatusIndicator,
+                    { backgroundColor: d.completed ? Colors.success : borderColor },
+                  ]}
+                />
               </View>
             ))}
-          </View>
+          </ScrollView>
         </View>
       </ScrollView>
+
+      {/* Bottom Navigation Bar */}
+      <View style={[styles.bottomBar, { backgroundColor: bg, borderTopColor: borderColor, paddingBottom: Math.max(insets.bottom, Spacing.xs), height: 72 + insets.bottom }]}>
+        <TouchableOpacity
+          style={styles.navTab}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.replace('/today');
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="calendar-outline" size={22} color={textMuted} style={styles.navIcon} />
+          <Text style={[styles.navText, { color: textMuted }]}>Today</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.navTab, styles.navTabActive, { backgroundColor: darkMode ? '#1E293B' : '#ECEDF8' }]}
+          onPress={() => {}}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="stats-chart" size={22} color={textColor} style={styles.navIcon} />
+          <Text style={[styles.navText, { color: textColor }]}>Progress</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.navTab}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.replace('/settings');
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="settings-outline" size={22} color={textMuted} style={styles.navIcon} />
+          <Text style={[styles.navText, { color: textMuted }]}>Settings</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  topAppBar: {
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl,
+  },
+  topBtnPlaceholder: {
+    width: 40,
+  },
+  appTitle: {
+    fontFamily: Font.bold,
+    fontSize: 20,
+    letterSpacing: -0.5,
+  },
+  profileAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileEmoji: {
+    fontSize: 18,
+  },
+
   scroll: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.xxxl,
+    paddingBottom: 120,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.xl,
-  },
-  backBtn: { width: 36 },
-  backText: { fontFamily: Font.bold, fontSize: 22 },
-  title: { fontFamily: Font.bold, fontSize: 20 },
 
-  statsRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginBottom: Spacing.base,
-  },
-  statCard: {
-    flex: 1,
-    padding: Spacing.base,
-    borderRadius: Radii.lg,
-    borderWidth: 1,
-    alignItems: 'center',
+  titleSection: {
+    marginBottom: Spacing.xl,
     gap: Spacing.xs,
   },
-  statEmoji: { fontSize: 22 },
-  statValue: { fontFamily: Font.bold, fontSize: 28 },
-  statUnit: { fontFamily: Font.medium, fontSize: 12 },
-
-  card: {
-    padding: Spacing.lg,
-    borderRadius: Radii.lg,
-    borderWidth: 1,
-    marginBottom: Spacing.base,
+  screenTitle: {
+    fontFamily: Font.bold,
+    fontSize: 26,
+    letterSpacing: -0.5,
   },
-  cardHeader: {
+  screenSub: {
+    fontFamily: Font.regular,
+    fontSize: 14,
+  },
+
+  /* Bento Stats Grid */
+  bentoContainer: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.xl,
+    gap: Spacing.md,
+  },
+  bentoCardLarge: {
+    flex: 1.2,
+    borderWidth: 1.5,
+    borderRadius: 24,
+    padding: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 180,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  bentoColumn: {
+    flex: 1,
+    gap: Spacing.md,
+  },
+  bentoCardSmall: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderRadius: 20,
+    padding: Spacing.md,
+    justifyContent: 'space-between',
+    minHeight: 84,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  bentoHeaderRow: {
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
   },
-  cardLabel: { fontFamily: Font.medium, fontSize: 13 },
-  cardRight: { fontFamily: Font.bold, fontSize: 14 },
-  bigNumber: { fontFamily: Font.bold, fontSize: 32, marginBottom: Spacing.md },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
+  bentoLabel: {
+    fontFamily: Font.bold,
+    fontSize: 12,
   },
-  progressFill: {
-    height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: 3,
+  bentoIcon: {
+    fontSize: 16,
+  },
+  bentoValue: {
+    fontFamily: Font.bold,
+    fontSize: 24,
+  },
+  bentoSubText: {
+    fontFamily: Font.medium,
+    fontSize: 11,
+    textAlign: 'center',
   },
 
+  /* Circular Ring */
+  circularContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: Spacing.xs,
+  },
+  progressRingOuter: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  circularRateText: {
+    fontFamily: Font.bold,
+    fontSize: 18,
+  },
+
+  /* 14-Day Timeline */
+  timelineSection: {
+    marginBottom: Spacing.xl,
+  },
   sectionTitle: {
     fontFamily: Font.bold,
-    fontSize: 17,
+    fontSize: 18,
+    letterSpacing: -0.3,
+    marginBottom: 2,
+  },
+  sectionSubtitle: {
+    fontFamily: Font.medium,
+    fontSize: 12,
     marginBottom: Spacing.md,
-    marginTop: Spacing.sm,
   },
-  timeline: {
-    flexDirection: 'row',
+  timelineScroll: {
+    paddingVertical: Spacing.xs,
+    gap: Spacing.sm,
+  },
+  timelinePill: {
+    width: 48,
+    height: 90,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: Spacing.xs,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.01,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
   },
-  timelineDay: { alignItems: 'center', gap: Spacing.xs },
-  dot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+  timelineWeekday: {
+    fontFamily: Font.bold,
+    fontSize: 11,
   },
-  dayLabel: { fontFamily: Font.regular, fontSize: 10 },
+  timelineDayNum: {
+    fontFamily: Font.bold,
+    fontSize: 14,
+  },
+  timelineStatusIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  navTab: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: 20,
+    minWidth: 70,
+  },
+  navTabActive: {},
+  navIcon: {
+    fontSize: 18,
+    marginBottom: 2,
+  },
+  navText: {
+    fontFamily: Font.bold,
+    fontSize: 11,
+  },
 });
