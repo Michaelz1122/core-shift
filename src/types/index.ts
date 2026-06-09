@@ -10,7 +10,7 @@ export type ChallengeId =
   | 'lack-of-focus'
   | 'poor-sleep'
   | 'anxiety'
-  | 'other';
+  | 'general-improvement';
 
 // ── Vision ────────────────────────────────────────────────────────────────────
 export type VisionId =
@@ -31,6 +31,8 @@ export interface Action {
   challengeId: ChallengeId;
   frequency: 'daily' | 'weekly';
   difficulty: 'beginner' | 'intermediate' | 'advanced';
+  selectedVersion?: 'standard' | 'smaller';
+  originalTemplateId?: string;
   isCustom?: boolean;
 }
 
@@ -74,5 +76,5 @@ export const CHALLENGE_TO_RESCUE: Partial<Record<ChallengeId, RescueFeeling>> = 
   'lack-of-focus':           'distraction',
   'poor-sleep':              'low-motivation',
   anxiety:                   'anxiety',
-  other:                     'feeling-lost',
+  'general-improvement':     'feeling-lost',
 };

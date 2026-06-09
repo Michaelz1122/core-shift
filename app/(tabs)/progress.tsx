@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, TouchableWithoutFeedback } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +10,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { Colors, Spacing, Radii, Gradients, Shadows } from '@/constants/theme';
 import { useTranslation } from '@/i18n';
 import { daysSince } from '@/utils/dates';
+import { router } from 'expo-router';
 
 interface Badge {
   id: string;
@@ -47,16 +48,30 @@ export default function ProgressScreen() {
     isDarkMode,
   } = useAppStore();
 
+  const [devTaps, setDevTaps] = useState(0);
+  const handleDevTap = () => {
+    const next = devTaps + 1;
+    if (next >= 7) {
+      setDevTaps(0);
+      router.push('/dev-settings' as any);
+    } else {
+      setDevTaps(next);
+    }
+  };
+
   const dayCount = onboardingCompletedAt ? daysSince(onboardingCompletedAt) : 0;
   const totalActions = activeActionIds.length;
   const completedToday = completedActionIdsToday.length;
   const hasData = totalActionsCompleted > 0 || completedToday > 0;
 
-  const heatmapData = getHeatmapData(streakHistory);
-  const weeks = [];
-  for (let i = 0; i < 10; i++) {
-    weeks.push(heatmapData.slice(i * 7, (i + 1) * 7));
-  }
+  const { heatmapData, weeks } = useMemo(() => {
+    const heatmap = getHeatmapData(streakHistory);
+    const wk = [];
+    for (let i = 0; i < 10; i++) {
+      wk.push(heatmap.slice(i * 7, (i + 1) * 7));
+    }
+    return { heatmapData: heatmap, weeks: wk };
+  }, [streakHistory]);
 
   const badges: Badge[] = [
     {
@@ -268,6 +283,13 @@ export default function ProgressScreen() {
             </AppText>
           </Card>
         )}
+
+        {/* Hidden Dev Trigger */}
+        <TouchableWithoutFeedback onPress={handleDevTap}>
+          <View style={{ paddingVertical: Spacing.xl, alignItems: 'center' }}>
+            <AppText variant="caption" color="muted">v1.0.0 (Beta)</AppText>
+          </View>
+        </TouchableWithoutFeedback>
       </ScrollView>
     </SafeAreaView>
   );

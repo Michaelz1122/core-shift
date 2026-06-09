@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { scheduleDailyReminder, cancelAllReminders } from '@/services/NotificationService';
 import type {
   Language,
   ChallengeId,
@@ -11,6 +12,7 @@ import type {
   MoodType,
 } from '@/types';
 import { getTodayString } from '@/utils/dates';
+import { getLevelForXp } from '@/utils/xpHelper';
 
 // ─── State shape ──────────────────────────────────────────────────────────────
 
@@ -37,6 +39,11 @@ interface AppStore {
   completionDate: string;
   todayCheckIn: CheckIn | null;
   checkInDate: string;
+
+  // Retention
+  lastActiveDate: string;
+  pendingRecoveryCheckIn: boolean;
+  lastWeeklyReviewDate: string;
 
   // Notes
   notes: Note[];
@@ -76,13 +83,16 @@ interface AppStore {
   isActionCompleted: (actionId: string) => boolean;
   saveCheckIn: (data: Omit<CheckIn, 'date'>) => void;
   getTodayCheckIn: () => CheckIn | null;
+  clearPendingRecovery: () => void;
+  setLastWeeklyReviewDate: (date: string) => void;
+  downgradeActiveActionsForToday: () => void;
 
   // Notes
   addNote: (content: string) => void;
   deleteNote: (id: string) => void;
 
   // Settings
-  setDailyReminder: (enabled: boolean, time?: string) => void;
+  setDailyReminder: (enabled: boolean, time?: string, language?: Language) => void;
   setReminderArchetype: (archetype: 'zen' | 'copilot' | 'discipline') => void;
   toggleDarkMode: () => void;
 
@@ -111,6 +121,9 @@ const INITIAL: Omit<
   | 'isActionCompleted'
   | 'saveCheckIn'
   | 'getTodayCheckIn'
+  | 'clearPendingRecovery'
+  | 'setLastWeeklyReviewDate'
+  | 'downgradeActiveActionsForToday'
   | 'addNote'
   | 'deleteNote'
   | 'setDailyReminder'
@@ -134,6 +147,9 @@ const INITIAL: Omit<
   completionDate: '',
   todayCheckIn: null,
   checkInDate: '',
+  lastActiveDate: '',
+  pendingRecoveryCheckIn: false,
+  lastWeeklyReviewDate: '',
   notes: [],
   totalActionsCompleted: 0,
   xp: 0,
@@ -220,8 +236,22 @@ export const useAppStore = create<AppStore>()(
       // ── Today ─────────────────────────────────────────────────────────────
       checkDateReset: () => {
         const today = getTodayString();
-        const { completionDate, checkInDate } = get();
+        const { completionDate, checkInDate, lastActiveDate, pendingRecoveryCheckIn } = get();
         const updates: Partial<AppStore> = {};
+        
+        // Retention Check (Missed Day Detection)
+        if (lastActiveDate && lastActiveDate !== today) {
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toISOString().split('T')[0];
+          
+          if (lastActiveDate !== yesterdayStr) {
+            // Gap of > 1 day detected
+            updates.pendingRecoveryCheckIn = true;
+          }
+        }
+        updates.lastActiveDate = today;
+
         if (completionDate !== today) {
           updates.completedActionIdsToday = [];
           updates.completionDate = today;
@@ -249,7 +279,7 @@ export const useAppStore = create<AppStore>()(
 
         const xpChange = wasCompleted ? -10 : 10;
         const newXp = Math.max(0, get().xp + xpChange);
-        const newLevel = Math.floor(newXp / 100) + 1;
+        const newLevel = getLevelForXp(newXp);
 
         // Streak: all active actions done today?
         const activeActions = get().activeActionIds.filter((id) =>
@@ -290,7 +320,7 @@ export const useAppStore = create<AppStore>()(
         const isNewCheckIn = state.todayCheckIn === null || state.checkInDate !== today;
         const xpChange = isNewCheckIn ? 25 : 0;
         const newXp = Math.max(0, state.xp + xpChange);
-        const newLevel = Math.floor(newXp / 100) + 1;
+        const newLevel = getLevelForXp(newXp);
 
         let currentNotes = [...state.notes];
         if (data.note && data.note.trim()) {
@@ -318,6 +348,20 @@ export const useAppStore = create<AppStore>()(
         return checkInDate === today ? todayCheckIn : null;
       },
 
+      clearPendingRecovery: () => set({ pendingRecoveryCheckIn: false }),
+      setLastWeeklyReviewDate: (date: string) => set({ lastWeeklyReviewDate: date }),
+      
+      downgradeActiveActionsForToday: () => {
+        // Temporarily set active actions to smaller version
+        const { actions, activeActionIds } = get();
+        const updatedActions = actions.map(a => 
+          activeActionIds.includes(a.id) 
+            ? { ...a, selectedVersion: 'smaller' as const } 
+            : a
+        );
+        set({ actions: updatedActions });
+      },
+
       // ── Notes ─────────────────────────────────────────────────────────────
       addNote: (content) => {
         const note: Note = {
@@ -330,25 +374,34 @@ export const useAppStore = create<AppStore>()(
         set({
           notes: [note, ...get().notes],
           xp: newXp,
-          level: Math.floor(newXp / 100) + 1,
+          level: getLevelForXp(newXp),
         });
       },
 
       deleteNote: (id) => set({ notes: get().notes.filter((n) => n.id !== id) }),
 
       // ── Settings ──────────────────────────────────────────────────────────
-      setDailyReminder: (enabled, time) =>
+      setDailyReminder: (enabled, time, language = 'en') => {
+        const targetTime = time ?? get().dailyReminderTime;
         set({
           dailyReminderEnabled: enabled,
-          dailyReminderTime: time ?? get().dailyReminderTime,
-        }),
+          dailyReminderTime: targetTime,
+        });
+
+        if (enabled && targetTime) {
+          const date = new Date(targetTime);
+          scheduleDailyReminder(date.getHours(), date.getMinutes(), language).catch(console.error);
+        } else {
+          cancelAllReminders().catch(console.error);
+        }
+      },
       setReminderArchetype: (archetype) => set({ reminderArchetype: archetype }),
       toggleDarkMode: () => set({ isDarkMode: !get().isDarkMode }),
 
       // ── Gamification ──────────────────────────────────────────────────────
       addXp: (amount) => {
         const newXp = Math.max(0, get().xp + amount);
-        set({ xp: newXp, level: Math.floor(newXp / 100) + 1 });
+        set({ xp: newXp, level: getLevelForXp(newXp) });
       },
 
       // ── Dev reset ─────────────────────────────────────────────────────────
@@ -357,6 +410,25 @@ export const useAppStore = create<AppStore>()(
     {
       name: 'coreshift-v2',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 1,
+      migrate: (persistedState: any, version: number) => {
+        if (version === 0) {
+          // Migration from unversioned to version 1
+          // Ensure all active actions have a selectedVersion and originalTemplateId
+          if (persistedState.actions && Array.isArray(persistedState.actions)) {
+            persistedState.actions = persistedState.actions.map((action: any) => ({
+              ...action,
+              selectedVersion: action.selectedVersion || 'standard',
+              originalTemplateId: action.originalTemplateId || action.templateId || action.id,
+            }));
+          }
+          // Ensure retention state exists
+          persistedState.lastActiveDate = persistedState.lastActiveDate || '';
+          persistedState.pendingRecoveryCheckIn = persistedState.pendingRecoveryCheckIn || false;
+          persistedState.lastWeeklyReviewDate = persistedState.lastWeeklyReviewDate || '';
+        }
+        return persistedState;
+      },
     }
   )
 );

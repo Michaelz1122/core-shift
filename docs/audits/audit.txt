@@ -1,0 +1,36 @@
+import { ALL_QUIZ_QUESTIONS } from './src/data/quizQuestions';
+import { ACTION_TEMPLATES } from './src/data/actionTemplates';
+
+console.log("=== Quiz Question Impact Audit ===\n");
+
+let totalWeakTags = 0;
+
+for (const q of ALL_QUIZ_QUESTIONS) {
+  console.log(`\nQUESTION: ${q.text.en}`);
+  
+  for (const opt of q.options) {
+    console.log(`  Option: ${opt.label.en}`);
+    console.log(`  Tags: [${opt.tags.join(', ')}]`);
+    
+    for (const tag of opt.tags) {
+      const activatedTemplates = ACTION_TEMPLATES.filter(t => t.tags.includes(tag));
+      const activatedTitles = activatedTemplates.map(t => t.label.en);
+      
+      console.log(`    Tag '${tag}' activates ${activatedTemplates.length} templates.`);
+      // Only list titles if it's less than 3 to keep output manageable, 
+      // wait the user asked "Show which action templates those tags can activate."
+      // I will print all of them.
+      if (activatedTitles.length > 0) {
+        console.log(`      -> ${activatedTitles.join(' | ')}`);
+      }
+      
+      if (activatedTemplates.length < 3) {
+        console.log(`      [FLAG] Weak tag! Activates fewer than 3 templates.`);
+        totalWeakTags++;
+      }
+    }
+    console.log(""); // spacer
+  }
+}
+
+console.log(`\nAudit complete. Found ${totalWeakTags} weak tag instances.`);

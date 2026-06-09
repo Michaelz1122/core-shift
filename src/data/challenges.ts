@@ -59,10 +59,10 @@ export const ALL_CHALLENGES: Challenge[] = [
     color: '#AF52DE',
   },
   {
-    id: 'other',
-    emoji: '🎯',
-    label: { en: 'Something Else', ar: 'غير ذلك' },
-    description: { en: "I'll describe my challenge", ar: 'عندي تحدي تاني' },
-    color: '#8E8E93',
+    id: 'general-improvement',
+    emoji: '🌱',
+    label: { en: 'General Improvement', ar: 'تطوير عام' },
+    description: { en: 'Build a stronger version of me', ar: 'أبني نسخة أقوى من نفسي' },
+    color: '#30B0C7',
   },
 ];

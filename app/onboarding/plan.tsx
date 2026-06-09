@@ -13,6 +13,8 @@ import { generateActionPlan } from '@/utils/actionPlanEngine';
 import { Colors, Spacing, Radii, Gradients, Shadows } from '@/constants/theme';
 import { useTranslation } from '@/i18n';
 import type { Action } from '@/types';
+import ConfidenceCheckModal from '@/components/onboarding/ConfidenceCheckModal';
+import { ACTION_TEMPLATES } from '@/data/actionTemplates';
 
 const MIN_ACTIVE = 3;
 const MAX_ACTIVE = 5;
@@ -32,6 +34,8 @@ export default function PlanScreen() {
   const [isGenerating, setIsGenerating] = useState(true);
   const [generatedActions, setGeneratedActions] = useState<Action[]>([]);
   const [localSelected, setLocalSelected] = useState<Set<string>>(new Set());
+  const [modalVisible, setModalVisible] = useState(false);
+  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
 
   // Loading animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -70,23 +74,40 @@ export default function PlanScreen() {
 
   const handleToggle = (id: string) => {
     const isSelected = localSelected.has(id);
-    // Can't deselect if at minimum
-    if (isSelected && localSelected.size <= MIN_ACTIVE) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      return;
+    if (isSelected) {
+      if (localSelected.size <= MIN_ACTIVE) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        return;
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setLocalSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    } else {
+      if (localSelected.size >= MAX_ACTIVE) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        return;
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setPendingActionId(id);
+      setModalVisible(true);
     }
-    // Can't add more if at maximum
-    if (!isSelected && localSelected.size >= MAX_ACTIVE) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      return;
+  };
+
+  const handleConfirmAction = (version: 'standard' | 'smaller', customData?: { label: string; duration: string }) => {
+    if (!pendingActionId) return;
+
+    if (version === 'smaller' && customData) {
+      setGeneratedActions(prev => prev.map(a => 
+        a.id === pendingActionId ? { ...a, title: customData.label, selectedVersion: 'smaller' } : a
+      ));
     }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setLocalSelected((prev) => {
-      const next = new Set(prev);
-      if (isSelected) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+
+    setLocalSelected(prev => new Set(prev).add(pendingActionId));
+    setModalVisible(false);
+    setPendingActionId(null);
   };
 
   const handleCommit = () => {
@@ -96,20 +117,14 @@ export default function PlanScreen() {
     setActions(generatedActions);
 
     // Override activeActionIds with user's selection
-    // First clear by calling setActions (which resets to first 5)
-    // Then adjust to match localSelected exactly
-    const selectedActions = generatedActions.filter((a) => localSelected.has(a.id));
     const allActions = generatedActions;
 
     useAppStore.setState({
-      actions: allActions,
-      activeActionIds: Array.from(localSelected),
+      actions: allActions as any,
+      activeActionIds: Array.from(localSelected) as any,
     });
 
-    // Welcome bonus XP
-    addXp(50);
-    completeOnboarding();
-    router.replace('/(tabs)/today');
+    router.push('/onboarding/preview' as any);
   };
 
   const difficultyColor = {
@@ -336,13 +351,17 @@ export default function PlanScreen() {
               <AppText variant="bodyMedium" style={styles.ctaText}>
                 {t.planCommit}
               </AppText>
-              <AppText variant="caption" style={styles.ctaXp}>
-                {t.planXpBonus}
-              </AppText>
             </LinearGradient>
           </TouchableOpacity>
         </View>
       </Animated.View>
+
+      <ConfidenceCheckModal
+        visible={modalVisible}
+        action={ACTION_TEMPLATES.find(a => a.id === pendingActionId) || null}
+        onClose={() => setModalVisible(false)}
+        onConfirm={handleConfirmAction}
+      />
     </SafeAreaView>
   );
 }

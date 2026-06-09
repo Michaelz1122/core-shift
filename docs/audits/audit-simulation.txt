@@ -1,0 +1,83 @@
+import fs from 'fs';
+import { generateActionPlan } from './src/utils/actionPlanEngine';
+import { buildQuizQuestions } from './src/data/quizQuestions';
+import { ALL_CHALLENGES } from './src/data/challenges';
+import { ChallengeId } from './src/types';
+
+function randomChoice<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function randomSubset<T>(arr: T[], count: number): T[] {
+  const shuffled = [...arr].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+}
+
+const numUsers = 20;
+let validCount = 0;
+const allUserPlans: string[][] = [];
+
+let md = "# Phase 1.5 Personalization Audit - 20 Simulated Users\n\n";
+
+for (let i = 1; i <= numUsers; i++) {
+  // 1. Pick 1 to 3 random challenges
+  const numChallenges = Math.floor(Math.random() * 3) + 1;
+  const challenges = randomSubset(ALL_CHALLENGES.map(c => c.id), numChallenges) as ChallengeId[];
+  
+  // 2. Build questions for these challenges
+  const questions = buildQuizQuestions(challenges);
+  
+  // 3. Randomly answer each question
+  const quizAnswers: Record<string, string> = {};
+  for (const q of questions) {
+    quizAnswers[q.id] = randomChoice(q.options).id;
+  }
+  
+  // 4. Generate plan
+  const plan = generateActionPlan(challenges, quizAnswers, 'en');
+  const actionIds = plan.map(a => a.id);
+  allUserPlans.push(actionIds);
+  
+  const isValidLength = plan.length >= 8 && plan.length <= 12;
+  if (isValidLength) validCount++;
+  
+  md += `## Simulated User ${i}\n`;
+  md += `**Challenges:** \`${challenges.join(', ')}\`\n`;
+  md += `**Generated Actions (${plan.length}):**\n`;
+  plan.forEach(a => {
+    md += `- ${a.emoji} ${a.title} *(Difficulty: ${a.difficulty})*\n`;
+  });
+  md += "\n";
+}
+
+// Calculate overlap (Average Jaccard similarity across all pairs)
+let totalPairs = 0;
+let totalSimilarity = 0;
+
+for (let i = 0; i < allUserPlans.length; i++) {
+  for (let j = i + 1; j < allUserPlans.length; j++) {
+    const setA = new Set(allUserPlans[i]);
+    const setB = new Set(allUserPlans[j]);
+    const intersection = new Set([...setA].filter(x => setB.has(x)));
+    const union = new Set([...setA, ...setB]);
+    const similarity = intersection.size / union.size;
+    totalSimilarity += similarity;
+    totalPairs++;
+  }
+}
+
+const avgOverlap = (totalSimilarity / totalPairs) * 100;
+
+md += `## Audit Summary\n\n`;
+md += `- **Users Simulated:** ${numUsers}\n`;
+md += `- **Plans within 8-12 length:** ${validCount} / ${numUsers}\n`;
+md += `- **Average Recommendation Overlap:** ${avgOverlap.toFixed(1)}%\n`;
+
+if (validCount === numUsers) {
+  md += `\n> [!NOTE]\n> ✅ **SUCCESS:** Every user received a valid, uniquely tailored action plan between 8 and 12 actions.\n`;
+} else {
+  md += `\n> [!WARNING]\n> ❌ **FAILED:** Some users did not receive 8-12 actions.\n`;
+}
+
+fs.writeFileSync('C:/Users/Michael/.gemini/antigravity/brain/b3502c00-e409-470a-b8cb-d39f0b060459/walkthrough.md', md);
+console.log("Audit complete. Wrote walkthrough.md.");

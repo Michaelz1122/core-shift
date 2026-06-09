@@ -9,6 +9,7 @@ import Card from '@/components/ui/Card';
 import PrimaryButton from '@/components/ui/PrimaryButton';
 import SecondaryButton from '@/components/ui/SecondaryButton';
 import { ProgressBar } from '@/components/progress/ProgressCard';
+import MoodChip from '@/components/forms/MoodChip';
 import { useAppStore } from '@/store/useAppStore';
 import { Colors, Spacing, Radii, Shadows } from '@/constants/theme';
 import { useTranslation } from '@/i18n';
@@ -23,9 +24,25 @@ export default function WeeklyReviewScreen() {
     isDarkMode,
   } = useAppStore();
 
-  const [wentWell, setWentWell] = useState('');
-  const [wasDifficult, setWasDifficult] = useState('');
-  const [improveNext, setImproveNext] = useState('');
+  const [selectedWins, setSelectedWins] = useState<Set<string>>(new Set());
+  const [selectedFrictions, setSelectedFrictions] = useState<Set<string>>(new Set());
+  const [notes, setNotes] = useState('');
+
+  const WINS_EN = ['Consistent routine', 'High energy', 'Good focus', 'Overcame urges', 'Slept well'];
+  const WINS_AR = ['روتين ثابت', 'طاقة عالية', 'تركيز ممتاز', 'قاومت المغريات', 'نوم مريح'];
+  const FRICTIONS_EN = ['Distractions', 'Low energy', 'Stress', 'Lack of time', 'Bad mood'];
+  const FRICTIONS_AR = ['مشتتات', 'طاقة ضعيفة', 'ضغط وتوتر', 'ضيق الوقت', 'مزاج سيء'];
+
+  const wins = isRTL ? WINS_AR : WINS_EN;
+  const frictions = isRTL ? FRICTIONS_AR : FRICTIONS_EN;
+
+  const toggleSet = (set: Set<string>, val: string, setter: React.Dispatch<React.SetStateAction<Set<string>>>) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const next = new Set(set);
+    if (next.has(val)) next.delete(val);
+    else next.add(val);
+    setter(next);
+  };
 
   const totalPerDay = activeActionIds.length;
 
@@ -48,11 +65,16 @@ export default function WeeklyReviewScreen() {
 
   const handleSave = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
+    const winsStr = Array.from(selectedWins).join(', ');
+    const fricStr = Array.from(selectedFrictions).join(', ');
+
     const reflectionText = isRTL
-      ? `مراجعة أسبوعية:\n\n١. إيه اللي اتعمل كويس: ${wentWell.trim() || 'مفيش تعليق'}\n٢. الصعوبات: ${wasDifficult.trim() || 'مفيش تعليق'}\n٣. تحسينات الأسبوع الجاي: ${improveNext.trim() || 'مفيش تعليق'}`
-      : `Weekly Reflections:\n\n1. What went well: ${wentWell.trim() || 'No feedback entered'}\n2. Difficulties faced: ${wasDifficult.trim() || 'No feedback entered'}\n3. Actionable improvements: ${improveNext.trim() || 'No feedback entered'}`;
+      ? `مراجعة أسبوعية:\n\n١. إنجازات: ${winsStr || 'مفيش'}\n٢. صعوبات: ${fricStr || 'مفيش'}\n٣. ملاحظات: ${notes.trim() || 'مفيش'}`
+      : `Weekly Reflections:\n\n1. Wins: ${winsStr || 'None'}\n2. Frictions: ${fricStr || 'None'}\n3. Notes: ${notes.trim() || 'None'}`;
 
     addNote(reflectionText);
+    useAppStore.getState().setLastWeeklyReviewDate(new Date().toISOString().split('T')[0]);
     router.back();
   };
 
@@ -130,46 +152,50 @@ export default function WeeklyReviewScreen() {
           <AppText variant="bodyMedium" style={[styles.questionLabel, isRTL && styles.textRight]}>
             {isRTL ? 'إيه اللي اتعمل كويس الأسبوع ده؟' : 'What went well this week?'}
           </AppText>
-          <TextInput
-            style={[styles.textarea, isRTL && styles.textareaRTL]}
-            placeholder={isRTL ? 'سجل انتصاراتك الصغيرة...' : 'Document your small victories...'}
-            placeholderTextColor={Colors.muted}
-            value={wentWell}
-            onChangeText={setWentWell}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-            textAlign={isRTL ? 'right' : 'left'}
-          />
+          <View style={styles.chipGroup}>
+            {wins.map(w => (
+              <TouchableOpacity
+                key={w}
+                onPress={() => toggleSet(selectedWins, w, setSelectedWins)}
+                style={[styles.chip, selectedWins.has(w) && styles.chipActive]}
+              >
+                <AppText style={{ color: selectedWins.has(w) ? Colors.white : Colors.charcoal, fontSize: 13, fontWeight: '600' }}>
+                  {w}
+                </AppText>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         <View style={styles.reflectionBlock}>
           <AppText variant="bodyMedium" style={[styles.questionLabel, isRTL && styles.textRight]}>
             {isRTL ? 'إيه اللي كان صعب؟' : 'What was difficult?'}
           </AppText>
-          <TextInput
-            style={[styles.textarea, isRTL && styles.textareaRTL]}
-            placeholder={isRTL ? 'كن صريح مع نفسك...' : 'Be brutally honest with your friction points...'}
-            placeholderTextColor={Colors.muted}
-            value={wasDifficult}
-            onChangeText={setWasDifficult}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-            textAlign={isRTL ? 'right' : 'left'}
-          />
+          <View style={styles.chipGroup}>
+            {frictions.map(f => (
+              <TouchableOpacity
+                key={f}
+                onPress={() => toggleSet(selectedFrictions, f, setSelectedFrictions)}
+                style={[styles.chip, selectedFrictions.has(f) && styles.chipActiveFriction]}
+              >
+                <AppText style={{ color: selectedFrictions.has(f) ? Colors.white : Colors.charcoal, fontSize: 13, fontWeight: '600' }}>
+                  {f}
+                </AppText>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         <View style={styles.reflectionBlock}>
           <AppText variant="bodyMedium" style={[styles.questionLabel, isRTL && styles.textRight]}>
-            {isRTL ? 'إيه اللي هتحسنه الأسبوع الجاي؟' : 'What do you want to improve next week?'}
+            {isRTL ? 'ملاحظات إضافية (اختياري)' : 'Additional Notes (Optional)'}
           </AppText>
           <TextInput
             style={[styles.textarea, isRTL && styles.textareaRTL]}
-            placeholder={isRTL ? 'تغيير واحد محدد...' : 'One specific actionable change...'}
+            placeholder={isRTL ? 'اكتب ملاحظاتك هنا...' : 'Any other thoughts?'}
             placeholderTextColor={Colors.muted}
-            value={improveNext}
-            onChangeText={setImproveNext}
+            value={notes}
+            onChangeText={setNotes}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
@@ -184,7 +210,7 @@ export default function WeeklyReviewScreen() {
           />
           <SecondaryButton
             title={isRTL ? 'تعديل الإجراءات النشطة' : 'Edit Active Actions'}
-            onPress={() => router.push('/onboarding/plan')}
+            onPress={() => router.push('/edit-plan' as any)}
             variant="outline"
           />
         </View>
@@ -270,6 +296,27 @@ const styles = StyleSheet.create({
   },
   textareaRTL: {
     writingDirection: 'rtl',
+  },
+  chipGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  chip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+  },
+  chipActive: {
+    backgroundColor: Colors.primaryBlue,
+    borderColor: Colors.primaryBlue,
+  },
+  chipActiveFriction: {
+    backgroundColor: '#FF3B30',
+    borderColor: '#FF3B30',
   },
   actions: {
     marginTop: Spacing.xl,

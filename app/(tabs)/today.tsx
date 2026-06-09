@@ -1,3 +1,4 @@
+import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,9 +9,11 @@ import AppText from '@/components/ui/AppText';
 import Card from '@/components/ui/Card';
 import HabitToggle from '@/components/habits/HabitToggle';
 import { ProgressBar } from '@/components/progress/ProgressCard';
+import RecoveryModal from '@/components/onboarding/RecoveryModal';
 import { useAppStore } from '@/store/useAppStore';
 import { Colors, Spacing, Radii, Gradients, Shadows } from '@/constants/theme';
 import { useTranslation } from '@/i18n';
+import { getBaseXpForLevel, getXpRequiredForLevel } from '@/utils/xpHelper';
 
 function getGreeting(name: string, isAR: boolean): string {
   const hour = new Date().getHours();
@@ -35,16 +38,29 @@ export default function TodayScreen() {
     xp,
     level,
     isDarkMode,
+    lastWeeklyReviewDate,
   } = useAppStore();
 
-  const xpInCurrentLevel = xp % 100;
-  const xpPercent = xpInCurrentLevel / 100;
-  const xpToNextLevel = 100 - xpInCurrentLevel;
+  const baseXp = getBaseXpForLevel(level);
+  const nextLevelXp = getXpRequiredForLevel(level);
+  const xpInCurrentLevel = xp - baseXp;
+  const xpRequiredForCurrentLevel = nextLevelXp - baseXp;
+  const xpPercent = xpRequiredForCurrentLevel > 0 ? xpInCurrentLevel / xpRequiredForCurrentLevel : 1;
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isSunday = new Date().getDay() === 0;
+  const needsWeeklyReview = isSunday && lastWeeklyReviewDate !== todayStr;
 
   const activeActions = actions.filter((a) => activeActionIds.includes(a.id));
   const completedCount = activeActions.filter((a) => isActionCompleted(a.id)).length;
   const total = activeActions.length;
   const hasCheckIn = todayCheckIn !== null;
+  const isAllDone = total > 0 && completedCount === total;
+
+  // Run checkDateReset on mount
+  React.useEffect(() => {
+    useAppStore.getState().checkDateReset();
+  }, []);
 
   const themeBg = isDarkMode ? '#121214' : Colors.background;
   const cardTextColor = isDarkMode ? '#FFFFFF' : Colors.charcoal;
@@ -99,7 +115,7 @@ export default function TodayScreen() {
                 {language === 'ar' ? 'نقاط الخبرة' : 'Self-Mastery XP'}
               </AppText>
               <AppText variant="caption" style={styles.xpLabel}>
-                {xpInCurrentLevel}/100 XP
+                {xp}/{nextLevelXp} XP
               </AppText>
             </View>
             <View style={styles.xpTrack}>
@@ -112,6 +128,27 @@ export default function TodayScreen() {
             </View>
           </View>
         </View>
+
+        {/* ── Weekly Review Prompt ──────────────────────────────────────── */}
+        {needsWeeklyReview && (
+          <TouchableOpacity
+            style={styles.reviewCard}
+            onPress={() => router.push('/weekly-review')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.reviewContent}>
+              <Ionicons name="calendar" size={24} color={Colors.white} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <AppText variant="h3" style={{ color: Colors.white, textAlign: isRTL ? 'right' : 'left' }}>
+                  {language === 'ar' ? 'المراجعة الأسبوعية جاهزة' : 'Weekly Review Due'}
+                </AppText>
+                <AppText variant="small" style={{ color: 'rgba(255,255,255,0.8)', textAlign: isRTL ? 'right' : 'left' }}>
+                  {language === 'ar' ? 'راجع إنجازاتك واكسب ١٠٠ نقطة' : 'Reflect on your progress (+100 XP)'}
+                </AppText>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* ── Daily Check-in ──────────────────────────────────────────── */}
         <TouchableOpacity
@@ -152,33 +189,59 @@ export default function TodayScreen() {
         </TouchableOpacity>
 
         {/* ── Progress Card ───────────────────────────────────────────── */}
-        <Card style={styles.progressCard}>
-          <View style={styles.progressTop}>
-            <AppText variant="bodyMedium" style={isRTL ? styles.textRight : undefined}>
-              {t.todayProgressTitle}
+        {isAllDone ? (
+          <LinearGradient
+            colors={Gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.progressCard, { borderRadius: Radii.xl, padding: Spacing.lg, marginBottom: Spacing.xl, ...Shadows.md }]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' }}>
+                <Ionicons name="star" size={24} color={Colors.white} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AppText variant="h3" style={{ color: Colors.white, marginBottom: 4, textAlign: isRTL ? 'right' : 'left' }}>
+                  {language === 'ar' ? 'عاش جداً!' : 'Day Won!'}
+                </AppText>
+                <AppText variant="small" style={{ color: 'rgba(255,255,255,0.9)', textAlign: isRTL ? 'right' : 'left' }}>
+                  {language === 'ar' ? 'خلصت كل مهامك النهاردة.' : 'You completed all your daily actions.'}
+                </AppText>
+              </View>
+            </View>
+          </LinearGradient>
+        ) : (
+          <Card style={styles.progressCard}>
+            <View style={styles.progressTop}>
+              <AppText variant="bodyMedium" style={isRTL ? styles.textRight : undefined}>
+                {t.todayProgressTitle}
+              </AppText>
+              <AppText variant="bodyMedium" color="primaryBlue">
+                {completedCount}/{total}
+              </AppText>
+            </View>
+            <View style={styles.progressBar}>
+              <ProgressBar value={completedCount} total={total} />
+            </View>
+            <AppText variant="small" style={isRTL ? styles.textRight : undefined}>
+              {total === 0
+                ? t.todayNoActions
+                : `${total - completedCount} ${t.todayActionsRemaining}`}
             </AppText>
-            <AppText variant="bodyMedium" color="primaryBlue">
-              {completedCount}/{total}
-            </AppText>
-          </View>
-          <View style={styles.progressBar}>
-            <ProgressBar value={completedCount} total={total} />
-          </View>
-          <AppText variant="small" style={isRTL ? styles.textRight : undefined}>
-            {total === 0
-              ? t.todayNoActions
-              : completedCount === total
-              ? t.todayAllDone
-              : `${total - completedCount} ${t.todayActionsRemaining}`}
-          </AppText>
-        </Card>
+          </Card>
+        )}
 
         {/* ── Actions List ────────────────────────────────────────────── */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
+          <View style={[styles.sectionHeader, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
             <AppText variant="h3" style={isRTL ? styles.textRight : undefined}>
               {t.todayActionsTitle}
             </AppText>
+            <TouchableOpacity onPress={() => router.push('/edit-plan' as any)}>
+              <AppText variant="small" color="primaryBlue" style={{ fontWeight: '600' }}>
+                {language === 'ar' ? 'تعديل الخطة' : 'Edit Plan'}
+              </AppText>
+            </TouchableOpacity>
           </View>
 
           {activeActions.length === 0 ? (
@@ -238,6 +301,8 @@ export default function TodayScreen() {
           <Ionicons name="shield-checkmark-outline" size={22} color={Colors.primaryBlue} />
         </TouchableOpacity>
       </ScrollView>
+
+      <RecoveryModal />
     </SafeAreaView>
   );
 }
@@ -279,6 +344,14 @@ const styles = StyleSheet.create({
   xpLabel: { color: Colors.muted, fontWeight: '500' },
   xpTrack: { height: 8, backgroundColor: Colors.border, borderRadius: Radii.full, overflow: 'hidden' },
   xpFill: { height: '100%', borderRadius: Radii.full },
+
+  reviewCard: {
+    backgroundColor: '#34C759',
+    borderRadius: Radii.xl,
+    padding: Spacing.lg,
+    marginBottom: Spacing.base,
+  },
+  reviewContent: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
 
   checkinCard: {
     backgroundColor: Colors.primaryBlue,

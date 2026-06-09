@@ -29,8 +29,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F7F7FA"
       },
-      "package": "com.michaelz1122.coreshift",
-      "permissions": []
+      "package": "com.coreshift.app",
+      "versionCode": 1
     },
     "plugins": [
       "expo-router",
@@ -42,7 +42,8 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 200
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

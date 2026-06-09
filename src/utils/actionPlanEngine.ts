@@ -1,4 +1,5 @@
 import { ACTION_TEMPLATES, ActionTemplate, ActionDifficulty } from '@/data/actionTemplates';
+import { ALL_QUIZ_QUESTIONS } from '@/data/quizQuestions';
 import type { Action, ChallengeId, Language } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -32,8 +33,16 @@ export function generateActionPlan(
     targetDifficulties = ['beginner'];
   }
 
-  // ── 2. Collect all quiz answer option IDs as tag hints ─────────────────────
-  const answerTags = new Set(Object.values(quizAnswers));
+  // ── 2. Collect all quiz answer tags ──────────────────────────────────────────
+  const answerTags = new Set<string>();
+  for (const [qId, optId] of Object.entries(quizAnswers)) {
+    const q = ALL_QUIZ_QUESTIONS.find(x => x.id === qId);
+    if (!q) continue;
+    const opt = q.options.find(x => x.id === optId);
+    if (opt && opt.tags) {
+      opt.tags.forEach(t => answerTags.add(t));
+    }
+  }
 
   // ── 3. Score each template ─────────────────────────────────────────────────
   const scored: ScoredAction[] = [];
@@ -58,6 +67,10 @@ export function generateActionPlan(
 
     // +1 for beginner (prefer easy first)
     if (template.difficulty === 'beginner') score += 1;
+
+    // +1 for core (tie-breaker), +0.5 for supportive
+    if (template.tier === 'core') score += 1;
+    if (template.tier === 'supportive') score += 0.5;
 
     scored.push({ template, score });
   }
@@ -93,6 +106,20 @@ export function generateActionPlan(
   return result;
 }
 
+export function getSmallerVersionFallback(template: ActionTemplate) {
+  if (template.smallerVersion) return template.smallerVersion;
+  return {
+    label: {
+      en: 'Just start: ' + template.label.en,
+      ar: 'جرب بس: ' + template.label.ar,
+    },
+    duration: {
+      en: '2 min',
+      ar: 'دقيقتين',
+    }
+  };
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function templateToAction(template: ActionTemplate, language: Language): Action {
@@ -103,5 +130,7 @@ function templateToAction(template: ActionTemplate, language: Language): Action 
     challengeId: template.challengeIds[0],
     frequency: template.frequency,
     difficulty: template.difficulty,
+    originalTemplateId: template.id,
+    selectedVersion: 'standard',
   };
 }

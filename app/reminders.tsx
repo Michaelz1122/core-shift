@@ -10,6 +10,7 @@ import Card from '@/components/ui/Card';
 import PrimaryButton from '@/components/ui/PrimaryButton';
 import { useAppStore } from '@/store/useAppStore';
 import { Colors, Spacing, Radii, Gradients, Shadows } from '@/constants/theme';
+import { requestNotificationPermissions } from '@/services/NotificationService';
 
 const ARCHETYPES = {
   zen: {
@@ -63,8 +64,15 @@ export default function RemindersScreen() {
   const habits = actions.filter((a) => activeActionIds.includes(a.id));
 
   // Toggle Daily Reminder Switch
-  const handleToggleReminder = (value: boolean) => {
+  const handleToggleReminder = async (value: boolean) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (value) {
+      const granted = await requestNotificationPermissions();
+      if (!granted) {
+        alert('Please enable push notifications in your device settings.');
+        return;
+      }
+    }
     setDailyReminder(value);
   };
 

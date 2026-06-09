@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { Colors } from '@/constants/theme';
 import { useAppStore } from '@/store/useAppStore';
+import GlobalErrorBoundary from '@/components/ui/GlobalErrorBoundary';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -17,8 +18,9 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+    <GlobalErrorBoundary>
+      <SafeAreaProvider>
+        <StatusBar style={isDarkMode ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           headerShown: false,
@@ -40,6 +42,10 @@ export default function RootLayout() {
           name="checkin"
           options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
         />
+        <Stack.Screen
+          name="edit-plan"
+          options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
+        />
         <Stack.Screen name="habit-detail" />
         <Stack.Screen
           name="note-new"
@@ -49,6 +55,7 @@ export default function RootLayout() {
         <Stack.Screen name="weekly-review" />
         <Stack.Screen name="reminders" />
       </Stack>
-    </SafeAreaProvider>
+      </SafeAreaProvider>
+    </GlobalErrorBoundary>
   );
 }
