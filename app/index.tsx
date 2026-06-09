@@ -1,60 +1,31 @@
 import { useEffect } from 'react';
-import { View, StyleSheet, Image } from 'react-native';
 import { router } from 'expo-router';
-import { Colors, Spacing, Radii } from '@/constants/theme';
-import AppText from '@/components/ui/AppText';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { useStore } from '@/store/useStore';
+import { Colors } from '@/constants/theme';
 
-export default function SplashScreen() {
+export default function Index() {
+  const onboarded = useStore((s) => s.onboarded);
+  const darkMode = useStore((s) => s.darkMode);
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      router.replace('/auth/login');
-    }, 2200);
+      if (onboarded) {
+        router.replace('/today');
+      } else {
+        router.replace('/onboarding');
+      }
+    }, 300);
     return () => clearTimeout(timer);
-  }, []);
+  }, [onboarded]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.logoBlock}>
-        <Image
-          source={require('../assets/icon.png')}
-          style={styles.logoImage}
-          resizeMode="contain"
-        />
-        <AppText variant="hero" style={styles.logoText}>
-          CoreShift
-        </AppText>
-      </View>
-      <AppText variant="body" style={styles.tagline} align="center">
-        Change from the inside out.
-      </AppText>
+    <View style={[styles.container, { backgroundColor: darkMode ? Colors.bgDark : Colors.bg }]}>
+      <ActivityIndicator size="large" color={Colors.primary} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.xl,
-  },
-  logoBlock: {
-    alignItems: 'center',
-    marginBottom: Spacing.base,
-  },
-  logoText: {
-    color: Colors.charcoal,
-    letterSpacing: -0.5,
-  },
-  logoImage: {
-    width: 100,
-    height: 100,
-    borderRadius: Radii.lg,
-    marginBottom: Spacing.md,
-  },
-  tagline: {
-    color: Colors.muted,
-    marginTop: Spacing.sm,
-  },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
