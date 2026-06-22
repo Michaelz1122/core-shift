@@ -185,7 +185,7 @@ export default function Settings() {
             style={[styles.settingRow, { flexDirection: isRTL ? 'row-reverse' : 'row', borderBottomColor: borderColor }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              Linking.openURL('https://coreshift-web.vercel.app/privacy');
+              Linking.openURL('https://core-shift.vercel.app/privacy');
             }}
           >
             <View style={[styles.rowLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -200,7 +200,7 @@ export default function Settings() {
             style={[styles.settingRow, { flexDirection: isRTL ? 'row-reverse' : 'row', borderBottomWidth: 0 }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              Linking.openURL('https://coreshift-web.vercel.app/terms');
+              Linking.openURL('https://core-shift.vercel.app/terms');
             }}
           >
             <View style={[styles.rowLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
