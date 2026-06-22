@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { AppState, AppActions, Language, Struggle, Goal, Action } from '@/types';
-import { generatePlan } from '@/utils/planEngine';
+import type { 
+  AppState, AppActions, Language, Friction, Goal, Action, 
+  RecoveryType, DailyPerformance 
+} from '@/types';
 
 export const getLocalDateStr = (date: Date = new Date()) => {
   const year = date.getFullYear();
@@ -11,7 +13,7 @@ export const getLocalDateStr = (date: Date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-export function calculateStreak(history: Record<string, boolean>): number {
+export function calculateStreak(history: Record<string, DailyPerformance>): number {
   let streak = 0;
   const today = new Date();
   const todayStr = getLocalDateStr(today);
@@ -20,15 +22,21 @@ export function calculateStreak(history: Record<string, boolean>): number {
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = getLocalDateStr(yesterday);
   
-  if (!history[todayStr] && !history[yesterdayStr]) {
+  // A day counts for streak if they completed at least 1 action
+  const isDayActive = (dateStr: string) => {
+    const stats = history[dateStr];
+    return stats && stats.completedActions > 0;
+  };
+
+  if (!isDayActive(todayStr) && !isDayActive(yesterdayStr)) {
     return 0;
   }
   
-  const checkDate = new Date(history[todayStr] ? today : yesterday);
+  const checkDate = new Date(isDayActive(todayStr) ? today : yesterday);
   
   while (true) {
     const checkStr = getLocalDateStr(checkDate);
-    if (history[checkStr]) {
+    if (isDayActive(checkStr)) {
       streak++;
       checkDate.setDate(checkDate.getDate() - 1);
     } else {
@@ -39,7 +47,13 @@ export function calculateStreak(history: Record<string, boolean>): number {
   return streak;
 }
 
-const getLevel = (xp: number) => Math.floor(xp / 100) + 1;
+const getEmptyDailyPerformance = (dateStr: string): DailyPerformance => ({
+  date: dateStr,
+  totalActions: 0,
+  completedActions: 0,
+  completionRate: 0,
+  recoveriesUsed: 0,
+});
 
 type Store = AppState & AppActions;
 
@@ -50,138 +64,158 @@ export const useStore = create<Store>()(
       _hasHydrated: false,
       onboarded: false,
       language: 'en',
-      struggle: null,
+      primaryFriction: null,
+      darkMode: false,
+      hasShownReview: false,
+
       goals: [],
-
-      // Plan
-      actions: [],
-
-      // Progress
-      xp: 0,
-      level: 1,
+      actions: {},
+      
       streak: 0,
       lastActiveDate: null,
+      lastEveningReviewDate: null,
       history: {},
-      lastOverloadPrompt: null,
-
-      // Settings
-      darkMode: false,
-      remindersEnabled: true,
 
       setHydrated: (h: boolean) => set({ _hasHydrated: h }),
 
-      // ── Onboarding ─────────────────────────────
+      // ── Preferences & Onboarding ───────────────
       setLanguage: (lang: Language) => set({ language: lang }),
+      setPrimaryFriction: (f: Friction) => set({ primaryFriction: f }),
+      toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
+      setHasShownReview: (shown: boolean) => set({ hasShownReview: shown }),
 
-      setStruggle: (s: Struggle) => set({ struggle: s }),
-
-      toggleGoal: (g: Goal) => set((state) => {
-        const hasGoal = state.goals.includes(g);
-        if (hasGoal) {
-          return { goals: state.goals.filter((goal) => goal !== g) };
-        } else {
-          return { goals: [...state.goals, g] };
-        }
-      }),
-
-      completeOnboarding: (customActions: Action[]) => {
+      completeOnboarding: (initialGoal: Goal, initialAction: Action) => {
+        const today = getLocalDateStr();
         set({
           onboarded: true,
-          actions: customActions,
-          lastActiveDate: getLocalDateStr(),
+          goals: [initialGoal],
+          actions: { [today]: [initialAction] },
+          lastActiveDate: today,
           streak: 0,
         });
       },
 
-      // ── Actions ────────────────────────────────
-      toggleAction: (id: string) => {
-        const { actions, xp } = get();
-        const updated = actions.map((a) => {
-          if (a.id !== id) return a;
-          const newCompleted = !a.completed;
-          return { ...a, completed: newCompleted };
-        });
+      // ── Goals CRUD ─────────────────────────────
+      addGoal: (g) => set((s) => {
+        const newGoal: Goal = { ...g, id: `goal_${Date.now()}`, createdAt: new Date().toISOString(), archived: false };
+        return { goals: [...s.goals, newGoal] };
+      }),
+      updateGoal: (id, updates) => set((s) => ({
+        goals: s.goals.map(g => g.id === id ? { ...g, ...updates } : g)
+      })),
+      deleteGoal: (id) => set((s) => {
+        // Also optionally cleanup actions tied to this goal? Keeping it simple.
+        return { goals: s.goals.filter(g => g.id !== id) };
+      }),
+      reorderGoals: (newOrder) => set({ goals: newOrder }),
 
-        const wasCompleted = actions.find((a) => a.id === id)?.completed ?? false;
-        const xpDelta = wasCompleted ? -10 : 10;
+      // ── Actions CRUD ───────────────────────────
+      addAction: (dateStr, a) => set((s) => {
+        const dayActions = s.actions[dateStr] || [];
+        const newAction: Action = { ...a, id: `action_${Date.now()}`, date: dateStr, isCompleted: false };
+        return {
+          actions: { ...s.actions, [dateStr]: [...dayActions, newAction] }
+        };
+      }),
+      updateAction: (dateStr, id, updates) => set((s) => {
+        const dayActions = s.actions[dateStr] || [];
+        return {
+          actions: {
+            ...s.actions,
+            [dateStr]: dayActions.map(a => a.id === id ? { ...a, ...updates } : a)
+          }
+        };
+      }),
+      deleteAction: (dateStr, id) => set((s) => {
+        const dayActions = s.actions[dateStr] || [];
+        return {
+          actions: {
+            ...s.actions,
+            [dateStr]: dayActions.filter(a => a.id !== id)
+          }
+        };
+      }),
+      toggleActionCompletion: (dateStr, id) => set((s) => {
+        const dayActions = s.actions[dateStr] || [];
+        const updatedActions = dayActions.map(a => a.id === id ? { ...a, isCompleted: !a.isCompleted } : a);
+        
+        // Update history stats live
+        const total = updatedActions.length;
+        const completed = updatedActions.filter(a => a.isCompleted).length;
+        const currentHist = s.history[dateStr] || getEmptyDailyPerformance(dateStr);
+        
+        const newHist = {
+          ...s.history,
+          [dateStr]: {
+            ...currentHist,
+            totalActions: total,
+            completedActions: completed,
+            completionRate: total > 0 ? completed / total : 0,
+          }
+        };
 
-        const anyDone = updated.some((a) => a.completed);
+        return {
+          actions: { ...s.actions, [dateStr]: updatedActions },
+          history: newHist,
+          streak: calculateStreak(newHist),
+          lastActiveDate: dateStr,
+        };
+      }),
+      reorderActions: (dateStr, newOrder) => set((s) => ({
+        actions: { ...s.actions, [dateStr]: newOrder }
+      })),
+
+      // ── Evening Review & Execution ─────────────
+      completeEveningReview: (dateStr) => set((s) => ({
+        lastEveningReviewDate: dateStr,
+      })),
+
+      logRecovery: (type) => set((s) => {
         const today = getLocalDateStr();
-        const history = { ...get().history };
-        if (anyDone) {
-          history[today] = true;
-        } else {
-          delete history[today];
-        }
+        const currentStats = s.history[today] || getEmptyDailyPerformance(today);
+        
+        const newHist = {
+          ...s.history,
+          [today]: {
+            ...currentStats,
+            recoveriesUsed: currentStats.recoveriesUsed + 1,
+          }
+        };
 
-        const newXp = Math.max(0, xp + xpDelta);
-        const newStreak = calculateStreak(history);
+        return {
+          history: newHist,
+        };
+      }),
 
-        set({
-          actions: updated,
-          xp: newXp,
-          level: getLevel(newXp),
-          history,
-          streak: newStreak,
-        });
-      },
-
-      regeneratePlan: () => {
-        const { struggle, goals } = get();
-        const actions = generatePlan(struggle, goals[0] || 'work');
-        set({ actions });
-      },
-
-      // ── Progress ───────────────────────────────
-      addXp: (amount: number) => {
-        const newXp = get().xp + amount;
-        set({ xp: newXp, level: getLevel(newXp) });
-      },
-
+      // ── System ─────────────────────────────────
       checkNewDay: () => {
-        const { lastActiveDate, actions } = get();
         const today = getLocalDateStr();
-        if (lastActiveDate === today) return;
-
-        // Reset action completions for new day
-        const resetActions = actions.map((a) => ({ ...a, completed: false }));
-
-        // Recalculate streak
-        const newStreak = calculateStreak(get().history);
-
-        set({
-          lastActiveDate: today,
-          streak: newStreak,
-          actions: resetActions,
-        });
+        const { lastActiveDate, history } = get();
+        if (lastActiveDate !== today) {
+          const newStreak = calculateStreak(history);
+          set({
+            streak: newStreak,
+          });
+        }
       },
-
-      setOverloadPrompt: (streak: number) => set({ lastOverloadPrompt: streak }),
-
-      // ── Settings ───────────────────────────────
-      toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
-
-      toggleReminders: () => set((s) => ({ remindersEnabled: !s.remindersEnabled })),
 
       resetAll: () =>
         set({
           onboarded: false,
           language: 'en',
-          struggle: null,
+          primaryFriction: null,
           goals: [],
-          actions: [],
-          xp: 0,
-          level: 1,
+          actions: {},
           streak: 0,
           lastActiveDate: null,
+          lastEveningReviewDate: null,
           history: {},
-          lastOverloadPrompt: null,
           darkMode: false,
-          remindersEnabled: true,
+          hasShownReview: false,
         }),
     }),
     {
-      name: 'coreshift-store',
+      name: 'coreshift-store-v3', // Bumped for new schema
       storage: createJSONStorage(() => AsyncStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {

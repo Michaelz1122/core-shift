@@ -1,25 +1,25 @@
 export const Colors = {
-  // Core
-  primary: '#2D7FF9',
-  primaryLight: '#EBF2FF',
+  // Core Accent (Growth Green)
+  primary: '#059669', // Emerald 600
+  primaryLight: '#D1FAE5', // Emerald 100
 
-  // Neutral
-  bg: '#F7F7FA',
-  bgDark: '#111113',
-  card: '#FFFFFF',
-  cardDark: '#1C1C1E',
-  border: '#E5E5EA',
-  borderDark: '#2C2C2E',
+  // Neutral (Light Mode)
+  bg: '#FFFFFF',
+  card: '#F9FAFB',
+  border: '#E5E7EB',
+  text: '#111827',
+  muted: '#6B7280',
 
-  // Text
-  text: '#1C1C1E',
-  textDark: '#F5F5F7',
-  muted: '#8E8E93',
-  mutedDark: '#8E8E93',
+  // Neutral (Dark Mode) - Pure Stark Black
+  bgDark: '#000000',
+  cardDark: '#111111',
+  borderDark: '#222222',
+  textDark: '#F9FAFB',
+  mutedDark: '#9CA3AF',
 
   // Semantic
-  success: '#30D158',
-  danger: '#FF3B30',
+  success: '#10B981',
+  danger: '#EF4444',
   white: '#FFFFFF',
 };
 

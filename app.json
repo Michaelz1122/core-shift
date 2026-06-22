@@ -30,7 +30,11 @@
         "backgroundColor": "#F7F7FA"
       },
       "package": "com.coreshift.app",
-      "versionCode": 3
+      "versionCode": 4,
+      "permissions": [
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
+      ]
     },
     "plugins": [
       "expo-router",

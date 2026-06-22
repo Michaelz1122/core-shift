@@ -1,35 +1,36 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated, Easing } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { useStore } from '@/store/useStore';
+import { useStore, getLocalDateStr } from '@/store/useStore';
 import { Colors, Spacing, Font } from '@/constants/theme';
 import { strings } from '@/constants/strings';
 import { useKeepAwake } from 'expo-keep-awake';
-
-const { width } = Dimensions.get('window');
+import type { RecoveryType } from '@/types';
 
 export default function FocusScreen() {
-  useKeepAwake(); // Keep screen on during focus mode
+  useKeepAwake();
   
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { actions, toggleAction, darkMode, language } = useStore();
+  const { interventionType } = useLocalSearchParams<{ interventionType?: RecoveryType }>();
+  const { logRecovery, darkMode, language } = useStore();
   const isRTL = language === 'ar';
   
-  const action = actions.find((a) => a.id === id);
-  
-  // Parse duration into seconds
-  const parseDuration = (dur: string) => {
-    if (!dur) return 25 * 60;
-    const val = parseInt(dur.replace(/\D/g, '')) || 25;
-    if (dur.includes('h')) return val * 60 * 60;
-    if (dur.includes('d')) return 24 * 60 * 60; // probably shouldn't use timer for this
-    return val * 60; // minutes
-  };
+  const todayStr = getLocalDateStr();
 
-  const initialSeconds = parseDuration(action?.duration || '25m');
+  // Determine initial seconds and labels
+  let initialSeconds = 25 * 60;
+  let titleStr = 'Focus';
+  let iconName: any = 'play';
+
+  if (interventionType) {
+    if (interventionType === 'focus') { initialSeconds = 300; titleStr = isRTL ? 'تركيز مكثف' : 'Focus Sprint'; iconName = 'stopwatch'; }
+    if (interventionType === 'activation') { initialSeconds = 120; titleStr = isRTL ? 'تنشيط فوري' : 'Activation Challenge'; iconName = 'flash'; }
+    if (interventionType === 'urge_delay') { initialSeconds = 90; titleStr = isRTL ? 'تأجيل الرغبة' : 'Urge Delay'; iconName = 'hand-left'; }
+    if (interventionType === 'breathing') { initialSeconds = 60; titleStr = isRTL ? 'تنفس استرخائي' : 'Box Breathing'; iconName = 'leaf'; }
+  }
+
   const [timeLeft, setTimeLeft] = useState(initialSeconds);
   const [isActive, setIsActive] = useState(false);
 
@@ -71,43 +72,37 @@ export default function FocusScreen() {
         setTimeLeft((prev) => prev - 1);
       }, 1000);
     } else if (timeLeft === 0 && isActive) {
-      // Timer finished
+      // Timer finished naturally
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setIsActive(false);
-      if (id && !action?.completed) {
-        toggleAction(id);
-      }
+      completeSession();
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isActive, timeLeft, id]);
+  }, [isActive, timeLeft]);
 
   const toggleTimer = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsActive(!isActive);
   };
 
-  const completeEarly = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    if (id && !action?.completed) {
-      toggleAction(id);
+  const completeSession = () => {
+    if (interventionType) {
+      logRecovery(interventionType);
     }
     router.back();
+  };
+
+  const completeEarly = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    completeSession();
   };
 
   const abandon = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
   };
-
-  if (!action) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <Text>Task not found.</Text>
-      </SafeAreaView>
-    );
-  }
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -117,15 +112,12 @@ export default function FocusScreen() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const bg = darkMode ? '#0F172A' : '#F8FAFC'; // Deep slate
-  const textColor = darkMode ? '#F8FAFC' : '#0F172A';
-  const textMuted = darkMode ? '#94A3B8' : '#64748B';
-
-  const titleText = isRTL ? action.titleAr : action.title;
+  const bg = darkMode ? '#000000' : '#FFFFFF';
+  const textColor = darkMode ? '#FFFFFF' : '#000000';
+  const textMuted = darkMode ? '#888888' : '#666666';
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: bg }]}>
-      {/* Header */}
       <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <TouchableOpacity style={styles.iconBtn} onPress={abandon}>
           <Ionicons name="close" size={28} color={textColor} />
@@ -133,18 +125,16 @@ export default function FocusScreen() {
       </View>
 
       <View style={styles.content}>
-        {/* Task Info */}
         <View style={styles.taskInfo}>
-          <Ionicons name={action.icon as any} size={32} color={Colors.primary} style={{ marginBottom: Spacing.md }} />
+          <Ionicons name={iconName} size={32} color={Colors.primary} style={{ marginBottom: Spacing.md }} />
           <Text style={[styles.taskTitle, { color: textColor, textAlign: 'center' }]}>
-            {titleText}
+            {titleStr}
           </Text>
           <Text style={[styles.taskStatus, { color: textMuted }]}>
-            {isActive ? (isRTL ? 'جاري التركيز...' : 'Deep Focus...') : (isRTL ? 'متوقف مؤقتاً' : 'Paused')}
+            {isActive ? (isRTL ? 'جاري التنفيذ...' : 'Executing...') : (isRTL ? 'اضغط للبدء' : 'Tap play to start')}
           </Text>
         </View>
 
-        {/* Timer Display */}
         <View style={styles.timerContainer}>
           <Animated.View
             style={[
@@ -166,7 +156,6 @@ export default function FocusScreen() {
           </View>
         </View>
 
-        {/* Controls */}
         <View style={styles.controls}>
           <TouchableOpacity
             style={[styles.playBtn, { backgroundColor: isActive ? Colors.danger : Colors.primary }]}
@@ -178,12 +167,10 @@ export default function FocusScreen() {
         </View>
       </View>
 
-      {/* Footer Complete Button */}
       <View style={styles.footer}>
-        <TouchableOpacity style={[styles.completeBtn, { backgroundColor: Colors.success }]} onPress={completeEarly} activeOpacity={0.8}>
-          <Ionicons name="checkmark-done" size={20} color="#FFFFFF" />
+        <TouchableOpacity style={styles.completeBtn} onPress={completeEarly} activeOpacity={0.8}>
           <Text style={styles.completeBtnText}>
-            {isRTL ? 'إكمال المهمة الآن' : 'Complete Task Now'}
+            {isRTL ? 'إنهاء مبكر' : 'Complete Early'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -192,9 +179,7 @@ export default function FocusScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
+  safe: { flex: 1 },
   header: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
@@ -250,7 +235,6 @@ const styles = StyleSheet.create({
     borderWidth: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'transparent',
   },
   timerText: {
     fontFamily: Font.bold,
@@ -267,32 +251,20 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
   },
   footer: {
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.xl,
+    alignItems: 'center',
   },
   completeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 56,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
     borderRadius: 28,
-    gap: Spacing.sm,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
   },
   completeBtnText: {
-    color: '#FFFFFF',
+    color: '#888888',
     fontFamily: Font.bold,
-    fontSize: 16,
+    fontSize: 14,
   },
 });

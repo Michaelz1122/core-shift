@@ -1,67 +1,88 @@
 export type Language = 'en' | 'ar';
 
-export type Struggle = 'procrastination' | 'phone_addiction' | 'focus' | 'discipline' | 'consistency';
+export type Friction = 'procrastination' | 'distraction' | 'overwhelm' | 'low_energy';
 
-export type Goal = 'work' | 'study' | 'health' | 'life_balance';
+export type RecoveryType = 'focus' | 'activation' | 'urge_delay' | 'breathing';
 
-export type Feeling = 'distracted' | 'no_energy' | 'urge' | 'stressed';
+export interface Goal {
+  id: string;
+  title: string;
+  icon: string;
+  createdAt: string; // ISO String
+  order: number;
+  archived: boolean;
+}
 
 export interface Action {
   id: string;
-  icon: string;
+  goalId: string;
   title: string;
-  titleAr: string;
-  description?: string;
-  descriptionAr?: string;
-  duration?: string;
-  completed: boolean;
+  isCompleted: boolean;
+  date: string; // YYYY-MM-DD
+  order: number;
+}
+
+export interface DailyPerformance {
+  date: string;
+  totalActions: number;
+  completedActions: number;
+  completionRate: number; // 0.0 to 1.0
+  recoveriesUsed: number;
 }
 
 export interface AppState {
   _hasHydrated: boolean;
 
-  // Onboarding
+  // Onboarding & Preferences
   onboarded: boolean;
   language: Language;
-  struggle: Struggle | null;
+  primaryFriction: Friction | null; // Kept for onboarding/recovery context
+  darkMode: boolean;
+  hasShownReview: boolean;
+
+  // Core Data
   goals: Goal[];
+  actions: Record<string, Action[]>; // Keyed by YYYY-MM-DD
 
-  // Plan
-  actions: Action[];
-
-  // Progress
-  xp: number;
-  level: number;
+  // Progress & History
   streak: number;
   lastActiveDate: string | null;
-  history: Record<string, boolean>; // dateStr -> allCompleted
-  lastOverloadPrompt: number | null;
-
-  // Settings
-  darkMode: boolean;
-  remindersEnabled: boolean;
+  lastEveningReviewDate: string | null;
+  history: Record<string, DailyPerformance>; // Keyed by YYYY-MM-DD
 }
 
 export interface AppActions {
   setHydrated: (h: boolean) => void;
 
-  // Onboarding
+  // Preferences
   setLanguage: (lang: Language) => void;
-  setStruggle: (s: Struggle) => void;
-  toggleGoal: (g: Goal) => void;
-  completeOnboarding: (customActions: Action[]) => void;
-
-  // Actions
-  toggleAction: (id: string) => void;
-  regeneratePlan: () => void;
-
-  // Progress
-  addXp: (amount: number) => void;
-  checkNewDay: () => void;
-  setOverloadPrompt: (streak: number) => void;
-
-  // Settings
+  setPrimaryFriction: (f: Friction) => void;
   toggleDarkMode: () => void;
-  toggleReminders: () => void;
+  setHasShownReview: (shown: boolean) => void;
+
+  // Onboarding
+  completeOnboarding: (initialGoal: Goal, initialAction: Action) => void;
+
+  // Goals CRUD
+  addGoal: (g: Omit<Goal, 'id' | 'createdAt' | 'archived'>) => void;
+  updateGoal: (id: string, updates: Partial<Goal>) => void;
+  deleteGoal: (id: string) => void;
+  reorderGoals: (newOrder: Goal[]) => void;
+
+  // Actions CRUD
+  addAction: (dateStr: string, a: Omit<Action, 'id' | 'date' | 'isCompleted'>) => void;
+  updateAction: (dateStr: string, id: string, updates: Partial<Action>) => void;
+  deleteAction: (dateStr: string, id: string) => void;
+  toggleActionCompletion: (dateStr: string, id: string) => void;
+  reorderActions: (dateStr: string, newOrder: Action[]) => void;
+  
+  // Evening Review
+  completeEveningReview: (dateStr: string) => void;
+
+  // Execution & Logs
+  logRecovery: (type: RecoveryType) => void;
+
+  // System
+  checkNewDay: () => void;
   resetAll: () => void;
 }

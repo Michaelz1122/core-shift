@@ -12,7 +12,7 @@ export default function Index() {
   useEffect(() => {
     if (_hasHydrated) {
       if (onboarded) {
-        router.replace('/today');
+        router.replace('/(tabs)/today');
       } else {
         router.replace('/onboarding');
       }
